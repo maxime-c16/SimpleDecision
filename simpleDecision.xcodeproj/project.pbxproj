@@ -6,14 +6,66 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		2D14BF3A2E8C1EF900F8153A /* Inject in Frameworks */ = {isa = PBXBuildFile; productRef = 2D14BF392E8C1EF900F8153A /* Inject */; };
+		2D14BF612E8C317D00F8153A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D14BF602E8C317C00F8153A /* WidgetKit.framework */; };
+		2D14BF632E8C317D00F8153A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D14BF622E8C317D00F8153A /* SwiftUI.framework */; };
+		2D14BF722E8C317E00F8153A /* TransportationRecommendationWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2D14BF5E2E8C317C00F8153A /* TransportationRecommendationWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2D14BF702E8C317E00F8153A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2D14BF222E8C1EC600F8153A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2D14BF5D2E8C317C00F8153A;
+			remoteInfo = TransportationRecommendationWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		2D14BF772E8C317E00F8153A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				2D14BF722E8C317E00F8153A /* TransportationRecommendationWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		2D14BF2A2E8C1EC600F8153A /* simpleDecision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = simpleDecision.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D14BF5E2E8C317C00F8153A /* TransportationRecommendationWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TransportationRecommendationWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2D14BF602E8C317C00F8153A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		2D14BF622E8C317D00F8153A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		2D14BF732E8C317E00F8153A /* Exceptions for "TransportationRecommendationWidget" folder in "TransportationRecommendationWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2D14BF5D2E8C317C00F8153A /* TransportationRecommendationWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2D14BF2C2E8C1EC600F8153A /* simpleDecision */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = simpleDecision;
+			sourceTree = "<group>";
+		};
+		2D14BF642E8C317D00F8153A /* TransportationRecommendationWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2D14BF732E8C317E00F8153A /* Exceptions for "TransportationRecommendationWidget" folder in "TransportationRecommendationWidgetExtension" target */,
+			);
+			path = TransportationRecommendationWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +75,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2D14BF3A2E8C1EF900F8153A /* Inject in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D14BF5B2E8C317C00F8153A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D14BF632E8C317D00F8153A /* SwiftUI.framework in Frameworks */,
+				2D14BF612E8C317D00F8153A /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +95,8 @@
 			isa = PBXGroup;
 			children = (
 				2D14BF2C2E8C1EC600F8153A /* simpleDecision */,
+				2D14BF642E8C317D00F8153A /* TransportationRecommendationWidget */,
+				2D14BF5F2E8C317C00F8153A /* Frameworks */,
 				2D14BF2B2E8C1EC600F8153A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +105,18 @@
 			isa = PBXGroup;
 			children = (
 				2D14BF2A2E8C1EC600F8153A /* simpleDecision.app */,
+				2D14BF5E2E8C317C00F8153A /* TransportationRecommendationWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		2D14BF5F2E8C317C00F8153A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2D14BF602E8C317C00F8153A /* WidgetKit.framework */,
+				2D14BF622E8C317D00F8153A /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,20 +129,45 @@
 				2D14BF262E8C1EC600F8153A /* Sources */,
 				2D14BF272E8C1EC600F8153A /* Frameworks */,
 				2D14BF282E8C1EC600F8153A /* Resources */,
+				2D14BF772E8C317E00F8153A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				2D14BF712E8C317E00F8153A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				2D14BF2C2E8C1EC600F8153A /* simpleDecision */,
 			);
 			name = simpleDecision;
 			packageProductDependencies = (
+				2D14BF392E8C1EF900F8153A /* Inject */,
 			);
 			productName = simpleDecision;
 			productReference = 2D14BF2A2E8C1EC600F8153A /* simpleDecision.app */;
 			productType = "com.apple.product-type.application";
+		};
+		2D14BF5D2E8C317C00F8153A /* TransportationRecommendationWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D14BF742E8C317E00F8153A /* Build configuration list for PBXNativeTarget "TransportationRecommendationWidgetExtension" */;
+			buildPhases = (
+				2D14BF5A2E8C317C00F8153A /* Sources */,
+				2D14BF5B2E8C317C00F8153A /* Frameworks */,
+				2D14BF5C2E8C317C00F8153A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				2D14BF642E8C317D00F8153A /* TransportationRecommendationWidget */,
+			);
+			name = TransportationRecommendationWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = TransportationRecommendationWidgetExtension;
+			productReference = 2D14BF5E2E8C317C00F8153A /* TransportationRecommendationWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -83,6 +182,9 @@
 					2D14BF292E8C1EC600F8153A = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
+					2D14BF5D2E8C317C00F8153A = {
+						CreatedOnToolsVersion = 26.0.1;
+					};
 				};
 			};
 			buildConfigurationList = 2D14BF252E8C1EC600F8153A /* Build configuration list for PBXProject "simpleDecision" */;
@@ -94,18 +196,29 @@
 			);
 			mainGroup = 2D14BF212E8C1EC600F8153A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2D14BF382E8C1EF900F8153A /* XCRemoteSwiftPackageReference "Inject" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2D14BF2B2E8C1EC600F8153A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				2D14BF292E8C1EC600F8153A /* simpleDecision */,
+				2D14BF5D2E8C317C00F8153A /* TransportationRecommendationWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		2D14BF282E8C1EC600F8153A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D14BF5C2E8C317C00F8153A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +235,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2D14BF5A2E8C317C00F8153A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2D14BF712E8C317E00F8153A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2D14BF5D2E8C317C00F8153A /* TransportationRecommendationWidgetExtension */;
+			targetProxy = 2D14BF702E8C317E00F8153A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2D14BF332E8C1EC700F8153A /* Debug */ = {
@@ -256,6 +384,8 @@
 				DEVELOPMENT_TEAM = 462D4QXRUG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location access is needed to calculate travel times and provide transportation recommendations.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -266,6 +396,11 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "\"-Xlinker -interposable\"";
+				"OTHER_LDFLAGS[arch=*]" = (
+					"-Xlinker",
+					"-interposable",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = slaicer.simpleDecision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -288,6 +423,8 @@
 				DEVELOPMENT_TEAM = 462D4QXRUG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location access is needed to calculate travel times and provide transportation recommendations.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -298,11 +435,72 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "\"-Xlinker -interposable\"";
 				PRODUCT_BUNDLE_IDENTIFIER = slaicer.simpleDecision;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2D14BF752E8C317E00F8153A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 462D4QXRUG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TransportationRecommendationWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TransportationRecommendationWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = slaicer.simpleDecision.TransportationRecommendationWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2D14BF762E8C317E00F8153A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 462D4QXRUG;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TransportationRecommendationWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TransportationRecommendationWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = slaicer.simpleDecision.TransportationRecommendationWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -331,7 +529,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		2D14BF742E8C317E00F8153A /* Build configuration list for PBXNativeTarget "TransportationRecommendationWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D14BF752E8C317E00F8153A /* Debug */,
+				2D14BF762E8C317E00F8153A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2D14BF382E8C1EF900F8153A /* XCRemoteSwiftPackageReference "Inject" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzysztofzablocki/Inject.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2D14BF392E8C1EF900F8153A /* Inject */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2D14BF382E8C1EF900F8153A /* XCRemoteSwiftPackageReference "Inject" */;
+			productName = Inject;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 2D14BF222E8C1EC600F8153A /* Project object */;
 }
