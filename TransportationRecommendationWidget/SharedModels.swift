@@ -32,6 +32,51 @@ public struct TransportationRecommendationWidgetAttributes: ActivityAttributes {
 
 // MARK: - Shared Models for Widget Extension
 
+/// Transit-specific details for bus/train recommendations
+public struct TransitDetails: Codable, Equatable, Hashable {
+    public let lineName: String              // e.g., "RER A", "Bus 122"
+    public let destinationName: String       // e.g., "Saint-Germain-en-Laye"
+    public let stopName: String              // Name of the transit stop
+    public let departureTime: Date           // Expected departure time
+    public let departureStatus: String       // "onTime", "delayed", "early"
+    public let platformName: String          // Platform or stop designation
+    public let walkToStopMinutes: Int        // Walking time to reach the stop
+    
+    public init(
+        lineName: String,
+        destinationName: String,
+        stopName: String,
+        departureTime: Date,
+        departureStatus: String,
+        platformName: String,
+        walkToStopMinutes: Int
+    ) {
+        self.lineName = lineName
+        self.destinationName = destinationName
+        self.stopName = stopName
+        self.departureTime = departureTime
+        self.departureStatus = departureStatus
+        self.platformName = platformName
+        self.walkToStopMinutes = walkToStopMinutes
+    }
+    
+    /// Minutes until departure
+    public var minutesUntilDeparture: Int {
+        let interval = departureTime.timeIntervalSinceNow
+        return max(0, Int(interval / 60))
+    }
+    
+    /// Status color for UI
+    public var statusColor: String {
+        switch departureStatus.lowercased() {
+        case "ontime": return "green"
+        case "delayed": return "orange"
+        case "early": return "blue"
+        default: return "gray"
+        }
+    }
+}
+
 /// Core decision output with transportation mode and metadata
 public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
     public let id: UUID
@@ -42,11 +87,22 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
     public let timestamp: Date
     public let source: RecommendationSource
     
+    // Transit-specific details (when mode is .bus)
+    public let transitDetails: TransitDetails?
+    
     enum CodingKeys: String, CodingKey {
-        case mode, walkETA, busETA, confidence, timestamp, source
+        case mode, walkETA, busETA, confidence, timestamp, source, transitDetails
     }
     
-    public init(mode: TransportationMode, walkETA: Int?, busETA: Int?, confidence: Double, timestamp: Date, source: RecommendationSource) {
+    public init(
+        mode: TransportationMode,
+        walkETA: Int?,
+        busETA: Int?,
+        confidence: Double,
+        timestamp: Date,
+        source: RecommendationSource,
+        transitDetails: TransitDetails? = nil
+    ) {
         self.id = UUID()
         self.mode = mode
         self.walkETA = walkETA
@@ -54,6 +110,7 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.confidence = confidence
         self.timestamp = timestamp
         self.source = source
+        self.transitDetails = transitDetails
     }
     
     public init(from decoder: Decoder) throws {
@@ -65,6 +122,7 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.confidence = try container.decode(Double.self, forKey: .confidence)
         self.timestamp = try container.decode(Date.self, forKey: .timestamp)
         self.source = try container.decode(RecommendationSource.self, forKey: .source)
+        self.transitDetails = try container.decodeIfPresent(TransitDetails.self, forKey: .transitDetails)
     }
     
     /// Primary ETA based on recommended mode
@@ -91,7 +149,8 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         busETA: nil,
         confidence: 0.9,
         timestamp: Date(),
-        source: .mock
+        source: .mock,
+        transitDetails: nil
     )
     
     public static let mockBus = Recommendation(
@@ -100,7 +159,16 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         busETA: 18,
         confidence: 0.8,
         timestamp: Date(),
-        source: .mock
+        source: .mock,
+        transitDetails: TransitDetails(
+            lineName: "Bus 122",
+            destinationName: "Gare du Nord",
+            stopName: "Place de la République",
+            departureTime: Date().addingTimeInterval(300), // 5 min from now
+            departureStatus: "onTime",
+            platformName: "Quai A",
+            walkToStopMinutes: 3
+        )
     )
     
     public static let mockTie = Recommendation(
@@ -109,7 +177,8 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         busETA: 15,
         confidence: 0.5,
         timestamp: Date(),
-        source: .mock
+        source: .mock,
+        transitDetails: nil
     )
 }
 

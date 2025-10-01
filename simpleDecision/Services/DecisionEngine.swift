@@ -314,13 +314,25 @@ class DecisionEngine: ObservableObject {
             departureStatus: nextDeparture.departureStatus
         )
         
+        // Create transit details from PRIM data
+        let transitDetails = TransitDetails(
+            lineName: nextDeparture.lineName,
+            destinationName: nextDeparture.destinationName,
+            stopName: nearestStop.name,
+            departureTime: nextDeparture.expectedDepartureTime,
+            departureStatus: nextDeparture.departureStatus,
+            platformName: nextDeparture.platformName,
+            walkToStopMinutes: Int(walkToStopMinutes.rounded())
+        )
+        
         return Recommendation(
             mode: .bus,
             walkETA: nil,
             busETA: Int(totalTimeMinutes),
             confidence: confidence,
             timestamp: Date(),
-            source: .primAPI
+            source: .primAPI,
+            transitDetails: transitDetails
         )
     }
     

@@ -62,11 +62,41 @@ struct RecommendationView: View {
                         .foregroundColor(.primary)
                 }
                 
-                // Source
-                Text("Source: \(recommendation.source.displayName)")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
+                // Transit quick info (when available)
+                if let transit = recommendation.transitDetails {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "bus.fill")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            Text(transit.lineName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text(transit.destinationName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Label("\(transit.walkToStopMinutes) min", systemImage: "figure.walk")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                            Label("\(transit.minutesUntilDeparture) min", systemImage: "clock")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                } else {
+                    // Source info for non-transit
+                    Text("Source: \(recommendation.source.displayName)")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
                 
                 // Confidence and source
                 HStack {
@@ -125,13 +155,97 @@ struct RecommendationView: View {
         VStack(alignment: .leading, spacing: 12) {
             Divider()
             
-            // Detailed information
+            // Transit-specific details (when available)
+            if let transit = recommendation.transitDetails {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Transit line and destination
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Line")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 6) {
+                                Image(systemName: "bus.fill")
+                                    .foregroundColor(.blue)
+                                Text(transit.lineName)
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Direction")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(transit.destinationName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    // Stop information
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "mappin.circle.fill")
+                                .foregroundColor(.red)
+                            Text(transit.stopName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
+                        HStack(spacing: 16) {
+                            HStack {
+                                Image(systemName: "figure.walk")
+                                    .foregroundColor(.orange)
+                                Text("\(transit.walkToStopMinutes) min walk")
+                                    .font(.caption)
+                            }
+                            
+                            HStack {
+                                Image(systemName: "clock.fill")
+                                    .foregroundColor(Color(transit.statusColor))
+                                Text("\(transit.minutesUntilDeparture) min")
+                                    .font(.caption)
+                            }
+                            
+                            Text(transit.departureStatus.capitalized)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color(transit.statusColor).opacity(0.2))
+                                .foregroundColor(Color(transit.statusColor))
+                                .cornerRadius(6)
+                        }
+                        
+                        if !transit.platformName.isEmpty {
+                            HStack {
+                                Image(systemName: "arrow.turn.up.right")
+                                    .foregroundColor(.secondary)
+                                Text("Platform: \(transit.platformName)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                }
+            }
+            
+            // General information
             VStack(alignment: .leading, spacing: 8) {
                 detailRow("Created", value: formattedTimestamp)
                 detailRow("Weather", value: weatherDisplayText)
                 
                 if recommendation.mode == .bus {
-                    detailRow("Data Source", value: "PRIM API (Île-de-France)")
+                    detailRow("Data Source", value: "PRIM API (Real-time)")
                 }
                 
                 if recommendation.mode == .walk {

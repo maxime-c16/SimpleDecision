@@ -76,20 +76,48 @@ struct RecommendationLockScreenView: View {
                     }
                 }
                 
-                HStack(spacing: 12) {
-                    if let walkETA = context.state.recommendation.walkETA {
-                        ETAView(
-                            icon: "figure.walk",
-                            time: walkETA,
-                            isRecommended: context.state.recommendation.mode == .walk
-                        )
+                // Transit details for bus recommendations
+                if let transit = context.state.recommendation.transitDetails {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bus.fill")
+                                .font(.caption2)
+                            Text(transit.lineName)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                            Text(transit.destinationName)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.blue)
+                        
+                        HStack(spacing: 8) {
+                            Label("\(transit.walkToStopMinutes)m", systemImage: "figure.walk")
+                                .font(.caption2)
+                            Label("\(transit.minutesUntilDeparture)m", systemImage: "clock")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.secondary)
                     }
-                    if let busETA = context.state.recommendation.busETA {
-                        ETAView(
-                            icon: "bus",
-                            time: busETA,
-                            isRecommended: context.state.recommendation.mode == .bus
-                        )
+                } else {
+                    // ETAs for walk/tie
+                    HStack(spacing: 12) {
+                        if let walkETA = context.state.recommendation.walkETA {
+                            ETAView(
+                                icon: "figure.walk",
+                                time: walkETA,
+                                isRecommended: context.state.recommendation.mode == .walk
+                            )
+                        }
+                        if let busETA = context.state.recommendation.busETA {
+                            ETAView(
+                                icon: "bus",
+                                time: busETA,
+                                isRecommended: context.state.recommendation.mode == .bus
+                            )
+                        }
                     }
                 }
                 
@@ -152,7 +180,20 @@ struct RecommendationDetailView: View {
                     .font(.caption)
                     .fontWeight(.medium)
                 
-                if context.state.recommendation.walkETA != nil && context.state.recommendation.busETA != nil {
+                // Show transit details if available
+                if let transit = context.state.recommendation.transitDetails {
+                    HStack(spacing: 4) {
+                        Text(transit.lineName)
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 8))
+                        Text(transit.destinationName)
+                            .font(.caption2)
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.blue)
+                } else if context.state.recommendation.walkETA != nil && context.state.recommendation.busETA != nil {
                     HStack(spacing: 8) {
                         if let walkETA = context.state.recommendation.walkETA {
                             HStack(spacing: 2) {
