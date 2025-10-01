@@ -298,8 +298,16 @@ class RecommendationViewModel: ObservableObject {
     }
     
     private func createWalkingAlternative(destination: Destination) -> Recommendation {
-        guard locationService.currentLocation != nil else {
-            return Recommendation.mockWalk
+        guard let currentLocation = locationService.currentLocation else {
+            // No location available - return a minimal walking recommendation
+            return Recommendation(
+                mode: .walk,
+                walkETA: nil,
+                busETA: nil,
+                confidence: 0.1,
+                timestamp: Date(),
+                source: .localHeuristics
+            )
         }
         
         let distance = locationService.distanceToDestination(destination.coordinate) ?? 1000

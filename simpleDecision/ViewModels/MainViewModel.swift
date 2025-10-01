@@ -111,8 +111,8 @@ class MainViewModel: ObservableObject {
     }
     
     private func loadInitialData() {
-        // Load saved destinations
-        availableDestinations = LocationData.mockDestinations
+        // Load saved destinations from UserDefaults
+        loadSavedDestinations()
         
         // Set default destination if configured
         if let defaultDestinationId = settingsManager.settings.defaultDestination {
@@ -127,6 +127,22 @@ class MainViewModel: ObservableObject {
         // Start automatic refresh if we have a destination
         if selectedDestination != nil {
             startPeriodicRefresh()
+        }
+    }
+    
+    private func loadSavedDestinations() {
+        if let savedData = UserDefaults.standard.data(forKey: "savedDestinations"),
+           let savedDestinations = try? JSONDecoder().decode([Destination].self, from: savedData) {
+            availableDestinations = savedDestinations
+        } else {
+            // First launch - start with empty destinations
+            availableDestinations = []
+        }
+    }
+    
+    func saveDestinations() {
+        if let encoded = try? JSONEncoder().encode(availableDestinations) {
+            UserDefaults.standard.set(encoded, forKey: "savedDestinations")
         }
     }
     

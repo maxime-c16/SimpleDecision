@@ -17,11 +17,10 @@ class DecisionEngine: ObservableObject {
     
     private let primClient: PRIMClient
     private let locationService: LocationService
+    private let settingsManager: AppSettingsManager
     private var cancellables = Set<AnyCancellable>()
     
-    // Algorithm parameters
-    private let walkingSpeedMps = 1.4 // 1.4 m/s = ~5 km/h average walking speed
-    private let maxWalkingDistanceMeters = 1200.0 // 12-minute walk maximum
+    // Algorithm parameters (can be overridden by user settings)
     private let transitWaitPenaltyMinutes = 3.0 // Penalty for waiting at stops
     private let weatherDelayFactors: [String: Double] = [
         "rain": 1.3,
@@ -29,9 +28,14 @@ class DecisionEngine: ObservableObject {
         "clear": 1.0
     ]
     
-    init(primClient: PRIMClient = PRIMClient.shared, locationService: LocationService) {
+    init(
+        primClient: PRIMClient = PRIMClient.shared,
+        locationService: LocationService,
+        settingsManager: AppSettingsManager = AppSettingsManager()
+    ) {
         self.primClient = primClient
         self.locationService = locationService
+        self.settingsManager = settingsManager
     }
     
     // MARK: - Input Validation
@@ -154,7 +158,14 @@ class DecisionEngine: ObservableObject {
             let walkingRecommendation = self?.createWalkingRecommendation(
                 distance: distance,
                 weather: weather
-            ) ?? Recommendation.mockWalk
+            ) ?? Recommendation(
+                mode: .walk,
+                walkETA: Int(distance / 80), // Default: 80m/min walking speed
+                busETA: nil,
+                confidence: 0.3,
+                timestamp: Date(),
+                source: .localHeuristics
+            )
             
             return Just(walkingRecommendation)
                 .setFailureType(to: Error.self)
@@ -171,6 +182,9 @@ class DecisionEngine: ObservableObject {
         weather: String
     ) -> AnyPublisher<Recommendation, Error> {
         
+        // Use user's max walking distance preference
+        let maxWalkingDistance = settingsManager.settings.maxWalkingDistanceMeters
+        
         // If very close, always recommend walking
         if distance < 300 {
             let walkingRec = createWalkingRecommendation(distance: distance, weather: weather)
@@ -179,8 +193,8 @@ class DecisionEngine: ObservableObject {
                 .eraseToAnyPublisher()
         }
         
-        // If too far for reasonable walking, prefer transit
-        if distance > maxWalkingDistanceMeters {
+        // If too far for user's walking preference, prefer transit
+        if distance > maxWalkingDistance {
             return findBestTransitOption(from: origin, to: destination, distance: distance, weather: weather)
         }
         
@@ -245,8 +259,10 @@ class DecisionEngine: ObservableObject {
         let validatedDistance = max(0, min(distance, 50000)) // Cap at 50km
         let validatedWeather = validateWeather(weather) ? weather : "clear"
         
+        // Use user's walking speed preference
+        let walkingSpeed = settingsManager.settings.walkingSpeedMps
         let weatherFactor = weatherDelayFactors[validatedWeather] ?? 1.0
-        let estimatedTimeMinutes = (validatedDistance / walkingSpeedMps / 60) * weatherFactor
+        let estimatedTimeMinutes = (validatedDistance / walkingSpeed / 60) * weatherFactor
         
         // Ensure reasonable time bounds (0-300 minutes)
         let cappedTimeMinutes = max(1, min(estimatedTimeMinutes, 300))
@@ -287,7 +303,8 @@ class DecisionEngine: ObservableObject {
         }
         
         let waitTimeMinutes = Double(nextDeparture.minutesUntilDeparture)
-        let walkToStopMinutes = nearestStop.distance / walkingSpeedMps / 60
+        let walkingSpeed = settingsManager.settings.walkingSpeedMps
+        let walkToStopMinutes = nearestStop.distance / walkingSpeed / 60
         let estimatedTransitTimeMinutes = 15.0 // Assume 15min average transit ride
         let totalTimeMinutes = walkToStopMinutes + waitTimeMinutes + estimatedTransitTimeMinutes + transitWaitPenaltyMinutes
         
@@ -309,6 +326,9 @@ class DecisionEngine: ObservableObject {
     
     /// Select best option between walking and transit using enhanced confidence scoring
     private func selectBestOption(walking: Recommendation, transit: Recommendation) -> Recommendation {
+        // If user prefers walking, boost walking score
+        let walkingPreferenceBoost = settingsManager.settings.preferWalking ? 0.15 : 0.0
+        
         // Enhanced selection algorithm considering confidence, time, and departure reliability
         let confidenceDiff = walking.confidence - transit.confidence
         let timeDiff = (walking.primaryETA ?? 0) - (transit.primaryETA ?? 0)
@@ -318,7 +338,7 @@ class DecisionEngine: ObservableObject {
             confidence: walking.confidence,
             timeMinutes: Double(walking.primaryETA ?? 0),
             isTransit: false
-        )
+        ) + walkingPreferenceBoost
         
         let transitScore = calculateOptionScore(
             confidence: transit.confidence,

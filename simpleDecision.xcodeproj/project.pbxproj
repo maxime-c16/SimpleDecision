@@ -59,11 +59,21 @@
 			);
 			target = 2D14BF292E8C1EC600F8153A /* simpleDecision */;
 		};
+		2D14BFCD2E8CB48300F8153A /* Exceptions for "simpleDecision" folder in "simpleDecision" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2D14BF292E8C1EC600F8153A /* simpleDecision */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2D14BF2C2E8C1EC600F8153A /* simpleDecision */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				2D14BFCD2E8CB48300F8153A /* Exceptions for "simpleDecision" folder in "simpleDecision" target */,
+			);
 			path = simpleDecision;
 			sourceTree = "<group>";
 		};
@@ -392,6 +402,7 @@
 				DEVELOPMENT_TEAM = 462D4QXRUG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = simpleDecision/Info.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location access is needed to calculate travel times and provide transportation recommendations.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -431,6 +442,7 @@
 				DEVELOPMENT_TEAM = 462D4QXRUG;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = simpleDecision/Info.plist;
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location access is needed to calculate travel times and provide transportation recommendations.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

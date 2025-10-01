@@ -110,7 +110,7 @@ class SettingsViewModel: ObservableObject {
         if settings.primAPIEnabled {
             successMessage = "PRIM API enabled - real-time transit data active"
         } else {
-            successMessage = "PRIM API disabled - using mock data"
+            successMessage = "PRIM API disabled - walking recommendations only"
         }
         
         clearMessagesAfterDelay()
@@ -156,6 +156,27 @@ class SettingsViewModel: ObservableObject {
         settingsManager.resetToDefaults()
         showingResetAlert = false
         successMessage = "Settings reset to defaults"
+        clearMessagesAfterDelay()
+    }
+    
+    /// Update walking speed preference
+    func updateWalkingSpeed(_ speedMps: Double) {
+        settingsManager.updateWalkingSpeed(speedMps)
+        successMessage = "Walking speed updated"
+        clearMessagesAfterDelay()
+    }
+    
+    /// Update walking preference
+    func updatePreferWalking(_ prefer: Bool) {
+        settingsManager.updatePreferWalking(prefer)
+        successMessage = prefer ? "Preference set to walking" : "Preference set to balanced"
+        clearMessagesAfterDelay()
+    }
+    
+    /// Update maximum walking distance
+    func updateMaxWalkingDistance(_ distanceMeters: Double) {
+        settingsManager.updateMaxWalkingDistance(distanceMeters)
+        successMessage = "Max walking distance updated"
         clearMessagesAfterDelay()
     }
     

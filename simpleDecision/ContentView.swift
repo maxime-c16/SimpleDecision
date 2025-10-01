@@ -73,6 +73,15 @@ struct ContentView: View {
                     mainViewModel.selectDestination(destination)
                 }
             }
+            .sheet(isPresented: $destinationViewModel.showingAddDestination) {
+                AddressSearchView { name, address, coordinate in
+                    destinationViewModel.addDestination(
+                        name: name,
+                        address: address,
+                        coordinate: coordinate
+                    )
+                }
+            }
             .sheet(isPresented: $showingFullDebugControls) {
                 NavigationView {
                     DebugControlsView()
@@ -454,34 +463,80 @@ struct DestinationPickerView: View {
     
     var body: some View {
         NavigationView {
-            List(viewModel.filteredDestinations, id: \.id) { destination in
-                Button(action: {
-                    onDestinationSelected(destination)
-                    presentationMode.wrappedValue.dismiss()
-                }) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(destination.name)
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Text(destination.address)
-                            .font(.caption)
+            VStack(spacing: 0) {
+                if viewModel.filteredDestinations.isEmpty {
+                    // Empty state
+                    VStack(spacing: 20) {
+                        Image(systemName: "map.fill")
+                            .font(.system(size: 64))
                             .foregroundColor(.secondary)
                         
-                        Text(viewModel.distanceToDestination(destination))
-                            .font(.caption2)
-                            .foregroundColor(.blue)
+                        Text("No Destinations Yet")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Text("Add your first destination to get started")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                        
+                        Button(action: {
+                            viewModel.showingAddDestination = true
+                        }) {
+                            Label("Add Destination", systemImage: "plus.circle.fill")
+                                .font(.headline)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(12)
+                        }
+                        .padding(.top)
                     }
-                    .padding(.vertical, 4)
+                    .padding()
+                } else {
+                    List {
+                        ForEach(viewModel.filteredDestinations, id: \.id) { destination in
+                            Button(action: {
+                                onDestinationSelected(destination)
+                                presentationMode.wrappedValue.dismiss()
+                            }) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(destination.name)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    
+                                    Text(destination.address)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text(viewModel.distanceToDestination(destination))
+                                        .font(.caption2)
+                                        .foregroundColor(.blue)
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                        .onDelete { indexSet in
+                            indexSet.forEach { index in
+                                let destination = viewModel.filteredDestinations[index]
+                                viewModel.removeDestination(destination)
+                            }
+                        }
+                    }
+                    .searchable(text: $viewModel.searchText, prompt: "Search destinations")
                 }
             }
             .navigationTitle("Select Destination")
             .navigationBarItems(
-                trailing: Button("Cancel") {
+                leading: Button("Cancel") {
                     presentationMode.wrappedValue.dismiss()
+                },
+                trailing: Button(action: {
+                    viewModel.showingAddDestination = true
+                }) {
+                    Image(systemName: "plus")
                 }
             )
-            .searchable(text: $viewModel.searchText, prompt: "Search destinations")
         }
     }
 }
@@ -520,6 +575,58 @@ struct SettingsView: View {
                         Text(viewModel.activityStatusText)
                             .foregroundColor(viewModel.activityStatusColor)
                     }
+                }
+                
+                Section("Walking Preferences") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Walking Speed")
+                            Spacer()
+                            Text(String(format: "%.1f km/h", viewModel.settings.walkingSpeedMps * 3.6))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Slider(
+                            value: Binding(
+                                get: { viewModel.settings.walkingSpeedMps },
+                                set: { viewModel.updateWalkingSpeed($0) }
+                            ),
+                            in: 0.5...3.0,
+                            step: 0.1
+                        )
+                        
+                        Text("Adjust based on your typical walking pace")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Max Walking Distance")
+                            Spacer()
+                            Text(String(format: "%.1f km", viewModel.settings.maxWalkingDistanceMeters / 1000))
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Slider(
+                            value: Binding(
+                                get: { viewModel.settings.maxWalkingDistanceMeters },
+                                set: { viewModel.updateMaxWalkingDistance($0) }
+                            ),
+                            in: 500...10000,
+                            step: 100
+                        )
+                        
+                        Text("Maximum distance you're willing to walk")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Toggle("Prefer Walking", isOn: Binding(
+                        get: { viewModel.settings.preferWalking },
+                        set: { viewModel.updatePreferWalking($0) }
+                    ))
+                    .help("Favor walking recommendations when transit and walking are similar")
                 }
                 
                 Section("Debug") {

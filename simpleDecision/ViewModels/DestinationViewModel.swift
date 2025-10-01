@@ -71,8 +71,14 @@ class DestinationViewModel: ObservableObject {
     private func loadDestinations() {
         isLoading = true
         
-        // Load mock destinations (in production, this might fetch from Core Data or API)
-        destinations = LocationData.mockDestinations
+        // Load saved destinations from UserDefaults
+        if let savedData = UserDefaults.standard.data(forKey: "savedDestinations"),
+           let savedDestinations = try? JSONDecoder().decode([Destination].self, from: savedData) {
+            destinations = savedDestinations
+        } else {
+            // First launch - start with empty destinations
+            destinations = []
+        }
         
         // Set selected destination from settings
         if let defaultDestinationId = settingsManager.settings.defaultDestination {
@@ -81,6 +87,13 @@ class DestinationViewModel: ObservableObject {
         
         filterDestinations()
         isLoading = false
+    }
+    
+    /// Save destinations to UserDefaults
+    private func saveDestinations() {
+        if let encoded = try? JSONEncoder().encode(destinations) {
+            UserDefaults.standard.set(encoded, forKey: "savedDestinations")
+        }
     }
     
     // MARK: - Public Methods
@@ -103,6 +116,7 @@ class DestinationViewModel: ObservableObject {
         )
         
         destinations.append(newDestination)
+        saveDestinations() // Persist to UserDefaults
         filterDestinations()
         
         // Auto-select the new destination
@@ -119,6 +133,7 @@ class DestinationViewModel: ObservableObject {
         }
         
         destinations.removeAll { $0.id == destination.id }
+        saveDestinations() // Persist to UserDefaults
         
         // If this was the selected destination, clear selection
         if selectedDestination?.id == destination.id {

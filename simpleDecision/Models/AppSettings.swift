@@ -19,6 +19,11 @@ struct AppSettings: Codable {
     let refreshIntervalSeconds: Int
     var enableDebugControls: Bool
     
+    // User customization preferences
+    var walkingSpeedMps: Double // Walking speed in meters per second
+    var preferWalking: Bool // User prefers walking over transit
+    var maxWalkingDistanceMeters: Double // Maximum distance willing to walk
+    
     /// Default settings for new installations
     static let defaultSettings = AppSettings(
         primAPIEnabled: false,                    // User must opt-in
@@ -27,7 +32,10 @@ struct AppSettings: Codable {
         defaultDestination: nil,                  // User must choose
         lastKnownLocation: nil,                   // Set after first location fix
         refreshIntervalSeconds: 30,               // 30-second refresh cycle
-        enableDebugControls: true                 // Enable for development
+        enableDebugControls: true,                // Enable for development
+        walkingSpeedMps: 1.4,                    // Average walking speed (5 km/h)
+        preferWalking: false,                     // Balanced recommendation
+        maxWalkingDistanceMeters: 2000           // 2km max walking distance
     )
     
     /// Check if basic setup is complete
@@ -79,7 +87,10 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: settings.defaultDestination,
             lastKnownLocation: settings.lastKnownLocation,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
         )
         saveSettings()
     }
@@ -93,7 +104,10 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: settings.defaultDestination,
             lastKnownLocation: settings.lastKnownLocation,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
         )
         saveSettings()
     }
@@ -107,7 +121,10 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: settings.defaultDestination,
             lastKnownLocation: settings.lastKnownLocation,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
         )
         saveSettings()
     }
@@ -121,7 +138,10 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: destinationId,
             lastKnownLocation: settings.lastKnownLocation,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
         )
         saveSettings()
     }
@@ -135,7 +155,10 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: settings.defaultDestination,
             lastKnownLocation: location,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
         )
         saveSettings()
     }
@@ -149,7 +172,61 @@ class AppSettingsManager: ObservableObject {
             defaultDestination: settings.defaultDestination,
             lastKnownLocation: settings.lastKnownLocation,
             refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: enabled
+            enableDebugControls: enabled,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
+        )
+        saveSettings()
+    }
+    
+    /// Update walking speed preference
+    func updateWalkingSpeed(_ speedMps: Double) {
+        settings = AppSettings(
+            primAPIEnabled: settings.primAPIEnabled,
+            primAPIKeyConfigured: settings.primAPIKeyConfigured,
+            locationPermissionRequested: settings.locationPermissionRequested,
+            defaultDestination: settings.defaultDestination,
+            lastKnownLocation: settings.lastKnownLocation,
+            refreshIntervalSeconds: settings.refreshIntervalSeconds,
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: max(0.5, min(speedMps, 3.0)), // Clamp between 0.5-3.0 m/s
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
+        )
+        saveSettings()
+    }
+    
+    /// Update walking preference
+    func updatePreferWalking(_ prefer: Bool) {
+        settings = AppSettings(
+            primAPIEnabled: settings.primAPIEnabled,
+            primAPIKeyConfigured: settings.primAPIKeyConfigured,
+            locationPermissionRequested: settings.locationPermissionRequested,
+            defaultDestination: settings.defaultDestination,
+            lastKnownLocation: settings.lastKnownLocation,
+            refreshIntervalSeconds: settings.refreshIntervalSeconds,
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: prefer,
+            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
+        )
+        saveSettings()
+    }
+    
+    /// Update maximum walking distance
+    func updateMaxWalkingDistance(_ distanceMeters: Double) {
+        settings = AppSettings(
+            primAPIEnabled: settings.primAPIEnabled,
+            primAPIKeyConfigured: settings.primAPIKeyConfigured,
+            locationPermissionRequested: settings.locationPermissionRequested,
+            defaultDestination: settings.defaultDestination,
+            lastKnownLocation: settings.lastKnownLocation,
+            refreshIntervalSeconds: settings.refreshIntervalSeconds,
+            enableDebugControls: settings.enableDebugControls,
+            walkingSpeedMps: settings.walkingSpeedMps,
+            preferWalking: settings.preferWalking,
+            maxWalkingDistanceMeters: max(500, min(distanceMeters, 10000)) // Clamp 500m-10km
         )
         saveSettings()
     }
