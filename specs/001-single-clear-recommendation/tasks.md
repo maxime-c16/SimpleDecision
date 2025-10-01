@@ -67,10 +67,10 @@
 - [x] T016 [P] Create DebugControlsView for Live Activities testing in simpleDecision/Views/DebugControlsView.swift
 
 ## Phase 3.5: API Integration
-- [ ] T017 Implement real PRIM API client with validated endpoints in PRIMClient.swift (update existing file)
-- [ ] T018 Add Keychain storage for PRIM API keys in PRIMClient.swift (update existing file)
-- [ ] T019 Add rate limiting and retry logic (5 req/sec) in PRIMClient.swift (update existing file)
-- [ ] T020 Integrate LocationService with permission handling in DecisionEngine.swift (update existing file)
+- [x] T017 Implement real PRIM API client with validated endpoints in PRIMClient.swift (update existing file)
+- [x] T018 Add Keychain storage for PRIM API keys in PRIMClient.swift (update existing file)
+- [x] T019 Add rate limiting and retry logic (5 req/sec) in PRIMClient.swift (update existing file)
+- [x] T020 Integrate LocationService with permission handling in DecisionEngine.swift (update existing file)
 
 ## Phase 3.6: Live Activities Integration  
 - [ ] T021 Create ActivityKit data structures (Attributes & ContentState) in simpleDecision/Models/LiveActivityModels.swift

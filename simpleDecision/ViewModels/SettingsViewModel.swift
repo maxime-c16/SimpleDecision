@@ -31,17 +31,18 @@ class SettingsViewModel: ObservableObject {
     private let settingsManager: AppSettingsManager
     private let locationService: LocationService
     private let backgroundScheduler: BackgroundScheduler
-    private let activityManager: ActivityManager
+    private let activityManager: ActivityManagerProtocol
     
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
+    @MainActor
     init(
         settingsManager: AppSettingsManager = AppSettingsManager(),
         locationService: LocationService = LocationService(),
         backgroundScheduler: BackgroundScheduler = BackgroundScheduler.shared,
-        activityManager: ActivityManager = ActivityManager.shared
+        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager()
     ) {
         self.settingsManager = settingsManager
         self.locationService = locationService
@@ -79,17 +80,22 @@ class SettingsViewModel: ObservableObject {
             }
             .store(in: &cancellables)
         
-        // Monitor activity manager availability
+        // Monitor activity manager availability (manually update since protocol doesn't have published properties)
         if #available(iOS 16.1, *) {
-            activityManager.$isActivitySupported
-                .assign(to: \.isActivitySupported, on: self)
+            // Periodically check activity support status
+            Timer.publish(every: 1.0, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self] _ in
+                    guard let self = self else { return }
+                    self.isActivitySupported = self.activityManager.isActivitySupported()
+                }
                 .store(in: &cancellables)
         }
     }
     
     private func loadInitialState() {
         if #available(iOS 16.1, *) {
-            isActivitySupported = activityManager.isActivitySupported
+            isActivitySupported = activityManager.isActivitySupported()
         } else {
             isActivitySupported = false
         }

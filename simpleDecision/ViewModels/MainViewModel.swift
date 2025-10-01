@@ -17,6 +17,8 @@ class MainViewModel: ObservableObject {
     @Published var currentRecommendation: Recommendation?
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var errorType: MainViewModelError.ErrorType = .none
+    @Published var showingErrorAlert = false
     @Published var selectedDestination: Destination?
     @Published var availableDestinations: [Destination] = []
     @Published var showingSettings = false
@@ -26,7 +28,7 @@ class MainViewModel: ObservableObject {
     private let locationService: LocationService
     private let decisionEngine: DecisionEngine
     private let settingsManager: AppSettingsManager
-    private let activityManager: ActivityManager
+    private let activityManager: ActivityManagerProtocol
     private let backgroundScheduler: BackgroundScheduler
     
     // MARK: - Private Properties
@@ -35,10 +37,11 @@ class MainViewModel: ObservableObject {
     private let refreshInterval: TimeInterval = 30 // 30 seconds
     
     // MARK: - Initialization
+    @MainActor
     init(
         locationService: LocationService = LocationService(),
         settingsManager: AppSettingsManager = AppSettingsManager(),
-        activityManager: ActivityManager = ActivityManager.shared,
+        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager(),
         backgroundScheduler: BackgroundScheduler = BackgroundScheduler.shared
     ) {
         self.locationService = locationService
@@ -56,25 +59,35 @@ class MainViewModel: ObservableObject {
         // Monitor location service errors
         locationService.$locationError
             .compactMap { $0 }
+            .map { errorString -> Error in
+                // Create a generic error from the string
+                NSError(domain: "LocationService", code: 0, userInfo: [NSLocalizedDescriptionKey: errorString])
+            }
             .sink { [weak self] error in
-                self?.errorMessage = "Location Error: \(error)"
+                self?.handleError(error)
             }
             .store(in: &cancellables)
         
         // Monitor decision engine errors
         decisionEngine.$lastError
             .compactMap { $0 }
+            .map { errorString -> Error in
+                // Create a generic error from the string
+                NSError(domain: "DecisionEngine", code: 0, userInfo: [NSLocalizedDescriptionKey: errorString])
+            }
             .sink { [weak self] error in
-                self?.errorMessage = "Decision Error: \(error)"
+                self?.handleError(error)
             }
             .store(in: &cancellables)
         
-        // Monitor activity manager errors
-        if #available(iOS 16.1, *) {
-            activityManager.$activityError
+        // Monitor activity manager errors (for LiveActivityManager)
+        if #available(iOS 16.1, *), let liveActivityManager = activityManager as? LiveActivityManager {
+            liveActivityManager.$activityError
                 .compactMap { $0 }
-                .sink { [weak self] error in
-                    self?.errorMessage = "Activity Error: \(error)"
+                .sink { [weak self] errorString in
+                    // Create a generic error from the string
+                    let error = NSError(domain: "ActivityManager", code: 0, userInfo: [NSLocalizedDescriptionKey: errorString])
+                    self?.handleError(error)
                 }
                 .store(in: &cancellables)
         }
@@ -128,17 +141,21 @@ class MainViewModel: ObservableObject {
     /// Manually refresh the transportation recommendation
     func refreshRecommendation() async {
         guard let destination = selectedDestination else {
-            errorMessage = "Please select a destination first"
+            let error = NSError(domain: "MainViewModel", code: 1001, 
+                               userInfo: [NSLocalizedDescriptionKey: "No destination selected"])
+            handleError(error)
             return
         }
         
         guard locationService.hasValidLocation else {
-            errorMessage = "Location not available. Please enable location services."
+            let error = NSError(domain: "MainViewModel", code: 1002, 
+                               userInfo: [NSLocalizedDescriptionKey: "Location not available"])
+            handleError(error)
             return
         }
         
         isLoading = true
-        errorMessage = nil
+        clearError()
         
         do {
             let recommendation = try await decisionEngine
@@ -147,9 +164,24 @@ class MainViewModel: ObservableObject {
             
             currentRecommendation = recommendation
             
-            // Start Live Activity if supported and enabled
-            if #available(iOS 16.1, *), activityManager.canStartActivity {
-                await activityManager.startActivity(with: recommendation, destination: destination.name)
+            // Start or update Live Activity if supported and enabled
+            if activityManager.isActivitySupported() {
+                if activityManager.hasActiveActivities() {
+                    // Update existing activity
+                    await activityManager.updateActivity(with: recommendation)
+                } else {
+                    // Start new activity
+                    let destinationName = destination.name
+                    let startLocationName = "Current Location" // Could be enhanced with reverse geocoding
+                    let success = await activityManager.startActivity(
+                        destinationName: destinationName,
+                        startLocationName: startLocationName,
+                        recommendation: recommendation
+                    )
+                    if !success {
+                        print("Failed to start Live Activity")
+                    }
+                }
             }
             
             // Update last known location in settings
@@ -158,7 +190,7 @@ class MainViewModel: ObservableObject {
             }
             
         } catch {
-            errorMessage = "Failed to generate recommendation: \(error.localizedDescription)"
+            handleError(error)
         }
         
         isLoading = false
@@ -182,22 +214,26 @@ class MainViewModel: ObservableObject {
         currentRecommendation = nil
         stopPeriodicRefresh()
         
-        if #available(iOS 16.1, *) {
-            Task {
-                await activityManager.endCurrentActivity()
-            }
+        Task {
+            await activityManager.endAllActivities()
         }
     }
     
     /// Mark journey as completed
     func markJourneyCompleted() {
-        if #available(iOS 16.1, *) {
-            Task {
-                await activityManager.markActivityCompleted(with: "Journey completed successfully!")
+        Task {
+            if let liveActivityManager = activityManager as? LiveActivityManager {
+                await liveActivityManager.markActivityCompleted(with: "Journey completed successfully!")
+            } else {
+                await activityManager.endAllActivities()
             }
         }
         
-        clearRecommendation()
+        // Clear recommendation after a brief delay to allow completion message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            self.currentRecommendation = nil
+            self.stopPeriodicRefresh()
+        }
     }
     
     /// Show destination picker
@@ -213,17 +249,120 @@ class MainViewModel: ObservableObject {
     /// Clear any error messages
     func clearError() {
         errorMessage = nil
+        errorType = .none
+        showingErrorAlert = false
         locationService.clearError()
         decisionEngine.clearError()
         
-        if #available(iOS 16.1, *) {
-            activityManager.clearError()
+        // Clear activity manager errors if supported
+        if let liveActivityManager = activityManager as? LiveActivityManager {
+            liveActivityManager.clearError()
+        }
+    }
+    
+    /// Handle errors with user-friendly messages and recovery options
+    private func handleError(_ error: Error) {
+        let processedError = MainViewModelError.create(from: error)
+        
+        DispatchQueue.main.async {
+            self.errorMessage = processedError.userMessage
+            self.errorType = processedError.type
+            self.showingErrorAlert = true
+            self.isLoading = false
+        }
+        
+        // Log the technical error for debugging
+        print("MainViewModel Error - Type: \(processedError.type), Technical: '\(processedError.message)', User: '\(processedError.userMessage)'")
+    }
+    
+    /// Retry the last operation based on error type
+    func retryLastOperation() {
+        clearError()
+        
+        switch errorType {
+        case .location, .permissions:
+            requestLocationPermission()
+            updateLocation()
+        case .network, .service, .timeout:
+            Task {
+                await refreshRecommendation()
+            }
+        case .data:
+            // For data errors, try to refresh destinations and clear current state
+            loadInitialData()
+            clearRecommendation()
+        default:
+            // Generic retry - refresh recommendation
+            Task {
+                await refreshRecommendation()
+            }
+        }
+    }
+    
+    /// Get user-friendly error message with suggested action
+    var errorMessageWithAction: String {
+        guard let message = errorMessage else { return "" }
+        
+        let processedError = MainViewModelError.create(from: NSError(domain: "Generic", code: 0, userInfo: [NSLocalizedDescriptionKey: message]))
+        
+        if let action = processedError.suggestedAction {
+            return "\(message)\n\n\(action)"
+        }
+        
+        return message
+    }
+    
+    /// Check if current error can be retried
+    var canRetryCurrentError: Bool {
+        switch errorType {
+        case .none:
+            return false
+        case .data:
+            return false // Data errors usually need different action
+        default:
+            return true
         }
     }
     
     /// Force location update
     func updateLocation() {
         locationService.requestLocation()
+    }
+    
+    // MARK: - Live Activity Management
+    
+    /// Start Live Activity manually (for debug/testing)
+    func startLiveActivity() async {
+        guard let recommendation = currentRecommendation,
+              let destination = selectedDestination else {
+            errorMessage = "Need active recommendation and destination to start Live Activity"
+            return
+        }
+        
+        let success = await activityManager.startActivity(
+            destinationName: destination.name,
+            startLocationName: "Current Location",
+            recommendation: recommendation
+        )
+        
+        if !success {
+            errorMessage = "Failed to start Live Activity"
+        }
+    }
+    
+    /// End Live Activity manually
+    func endLiveActivity() async {
+        await activityManager.endAllActivities()
+    }
+    
+    /// Check if Live Activities are supported
+    var isLiveActivitySupported: Bool {
+        return activityManager.isActivitySupported()
+    }
+    
+    /// Check if there are active Live Activities
+    var hasActiveLiveActivity: Bool {
+        return activityManager.hasActiveActivities()
     }
     
     // MARK: - Private Methods
@@ -282,7 +421,7 @@ class MainViewModel: ObservableObject {
     
     var destinationStatusText: String {
         if let destination = selectedDestination {
-            if let currentLocation = locationService.currentLocation {
+            if locationService.currentLocation != nil {
                 let distance = locationService.formattedDistance(to: destination.coordinate)
                 return "\(destination.name) (\(distance))"
             } else {
@@ -294,7 +433,137 @@ class MainViewModel: ObservableObject {
     }
     
     deinit {
-        stopPeriodicRefresh()
+        // Clean up any resources synchronously
+        // Note: Cannot use Task in deinit as it may outlive the object
+        refreshTimer?.invalidate()
+    }
+}
+
+// MARK: - Error Handling
+
+struct MainViewModelError {
+    enum ErrorType: Equatable {
+        case none
+        case location
+        case permissions
+        case network
+        case service
+        case data
+        case timeout
+        case unknown
+        
+        var icon: String {
+            switch self {
+            case .none: return ""
+            case .location: return "location.slash"
+            case .permissions: return "exclamationmark.shield"
+            case .network: return "wifi.slash"
+            case .service: return "server.rack"
+            case .data: return "exclamationmark.triangle"
+            case .timeout: return "clock.badge.exclamationmark"
+            case .unknown: return "questionmark.circle"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .none: return .clear
+            case .location: return .orange
+            case .permissions: return .red
+            case .network: return .blue
+            case .service: return .purple
+            case .data: return .yellow
+            case .timeout: return .orange
+            case .unknown: return .gray
+            }
+        }
+    }
+    
+    let type: ErrorType
+    let message: String
+    let userMessage: String
+    let canRetry: Bool
+    let suggestedAction: String?
+    
+    static func create(from error: Error) -> MainViewModelError {
+        let errorString = error.localizedDescription.lowercased()
+        
+        // Location-related errors
+        if errorString.contains("location") || errorString.contains("coordinate") {
+            if errorString.contains("permission") || errorString.contains("denied") {
+                return MainViewModelError(
+                    type: .permissions,
+                    message: error.localizedDescription,
+                    userMessage: "Location access is required to provide transportation recommendations.",
+                    canRetry: true,
+                    suggestedAction: "Please enable location services in Settings"
+                )
+            } else if errorString.contains("not available") || errorString.contains("unavailable") {
+                return MainViewModelError(
+                    type: .location,
+                    message: error.localizedDescription,
+                    userMessage: "Unable to determine your current location.",
+                    canRetry: true,
+                    suggestedAction: "Try moving to an area with better GPS signal"
+                )
+            }
+        }
+        
+        // Network-related errors
+        if errorString.contains("network") || errorString.contains("internet") || 
+           errorString.contains("connection") || errorString.contains("offline") {
+            return MainViewModelError(
+                type: .network,
+                message: error.localizedDescription,
+                userMessage: "No internet connection available.",
+                canRetry: true,
+                suggestedAction: "Check your internet connection and try again"
+            )
+        }
+        
+        // Timeout errors
+        if errorString.contains("timeout") || errorString.contains("timed out") {
+            return MainViewModelError(
+                type: .timeout,
+                message: error.localizedDescription,
+                userMessage: "Request took too long to complete.",
+                canRetry: true,
+                suggestedAction: "The service may be busy. Please try again in a moment"
+            )
+        }
+        
+        // Service/API errors
+        if errorString.contains("api") || errorString.contains("service") || 
+           errorString.contains("server") || errorString.contains("invalid response") {
+            return MainViewModelError(
+                type: .service,
+                message: error.localizedDescription,
+                userMessage: "Transportation service is temporarily unavailable.",
+                canRetry: true,
+                suggestedAction: "Please try again in a few minutes"
+            )
+        }
+        
+        // Data validation errors
+        if errorString.contains("invalid") || errorString.contains("validation") ||
+           errorString.contains("data") {
+            return MainViewModelError(
+                type: .data,
+                message: error.localizedDescription,
+                userMessage: "Invalid data encountered.",
+                canRetry: false,
+                suggestedAction: "Please select a different destination or restart the app"
+            )
+        }
+        
+        // Default unknown error
+        return MainViewModelError(
+            type: .unknown,
+            message: error.localizedDescription,
+            userMessage: "An unexpected error occurred.",
+            canRetry: true,
+            suggestedAction: "Please try again or restart the app if the problem persists"
+        )
     }
 }
 

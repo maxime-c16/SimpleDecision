@@ -9,72 +9,237 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-struct TransportationRecommendationWidgetAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        // Dynamic stateful properties about your activity go here!
-        var emoji: String
-    }
-
-    // Fixed non-changing properties about your activity go here!
-    var name: String
-}
+// TransportationRecommendationWidgetAttributes is defined in SharedModels.swift
 
 struct TransportationRecommendationWidgetLiveActivity: Widget {
+    let kind: String = "TransportationRecommendationWidget"
+    
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TransportationRecommendationWidgetAttributes.self) { context in
-            // Lock screen/banner UI goes here
-            VStack {
-                Text("Hello \(context.state.emoji)")
-            }
-            .activityBackgroundTint(Color.cyan)
-            .activitySystemActionForegroundColor(Color.black)
-
+            // Lock Screen / Banner UI
+            RecommendationLockScreenView(context: context)
         } dynamicIsland: { context in
+            // Dynamic Island UI
             DynamicIsland {
-                // Expanded UI goes here.  Compose the expanded UI through
-                // various regions, like leading/trailing/center/bottom
+                // Expanded UI
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("Leading")
+                    RecommendationIconView(mode: context.state.recommendation.mode)
+                        .font(.system(size: 20, weight: .semibold))
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("Trailing")
+                    RecommendationETAView(context: context)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    Text("Bottom \(context.state.emoji)")
-                    // more content
+                    RecommendationDetailView(context: context)
                 }
             } compactLeading: {
-                Text("L")
+                // Compact leading
+                RecommendationIconView(mode: context.state.recommendation.mode)
             } compactTrailing: {
-                Text("T \(context.state.emoji)")
+                // Compact trailing  
+                Text("\(context.state.recommendation.primaryETA ?? 0)m")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
             } minimal: {
-                Text(context.state.emoji)
+                // Minimal
+                RecommendationIconView(mode: context.state.recommendation.mode)
             }
-            .widgetURL(URL(string: "http://www.apple.com"))
-            .keylineTint(Color.red)
+            .widgetURL(URL(string: "simpledecision://recommendation"))
+            .keylineTint(Color(context.state.recommendation.mode.colorName))
         }
+    }
+}
+
+// MARK: - Lock Screen View
+
+struct RecommendationLockScreenView: View {
+    let context: ActivityViewContext<TransportationRecommendationWidgetAttributes>
+    
+    var body: some View {
+        HStack(spacing: 16) {
+            // Mode icon
+            RecommendationIconView(mode: context.state.recommendation.mode)
+                .font(.title2)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Recommended: \(context.state.recommendation.mode.displayName)")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    if let eta = context.state.recommendation.primaryETA {
+                        Text("\(eta) min")
+                            .font(.title3)
+                            .fontWeight(.medium)
+                    }
+                }
+                
+                HStack(spacing: 12) {
+                    if let walkETA = context.state.recommendation.walkETA {
+                        ETAView(
+                            icon: "figure.walk",
+                            time: walkETA,
+                            isRecommended: context.state.recommendation.mode == .walk
+                        )
+                    }
+                    if let busETA = context.state.recommendation.busETA {
+                        ETAView(
+                            icon: "bus",
+                            time: busETA,
+                            isRecommended: context.state.recommendation.mode == .bus
+                        )
+                    }
+                }
+                
+                HStack {
+                    Text("Confidence: \(context.state.recommendation.confidencePercentage)%")
+                        .font(.caption2)
+                    Spacer()
+                    Text("Updated: \(context.state.lastUpdated, style: .time)")
+                        .font(.caption2)
+                    Text("• \(context.state.recommendation.source.displayName)")
+                        .font(.caption2)
+                }
+                .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(16)
+        .activityBackgroundTint(Color(context.state.recommendation.mode.colorName).opacity(0.1))
+        .activitySystemActionForegroundColor(Color.primary)
+    }
+}
+
+// MARK: - Dynamic Island Component Views
+
+struct RecommendationIconView: View {
+    let mode: TransportationMode
+    
+    var body: some View {
+        Image(systemName: mode.iconName)
+            .foregroundColor(Color(mode.colorName))
+            .font(.system(size: 16, weight: .semibold))
+    }
+}
+
+struct RecommendationETAView: View {
+    let context: ActivityViewContext<TransportationRecommendationWidgetAttributes>
+    
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            if let eta = context.state.recommendation.primaryETA {
+                Text("\(eta) min")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+            }
+            Text("\(context.state.recommendation.confidencePercentage)%")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+struct RecommendationDetailView: View {
+    let context: ActivityViewContext<TransportationRecommendationWidgetAttributes>
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(context.state.recommendation.mode.displayName)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                
+                if context.state.recommendation.walkETA != nil && context.state.recommendation.busETA != nil {
+                    HStack(spacing: 8) {
+                        if let walkETA = context.state.recommendation.walkETA {
+                            HStack(spacing: 2) {
+                                Image(systemName: "figure.walk")
+                                    .font(.caption2)
+                                Text("\(walkETA)m")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(context.state.recommendation.mode == .walk ? .primary : .secondary)
+                        }
+                        
+                        if let busETA = context.state.recommendation.busETA {
+                            HStack(spacing: 2) {
+                                Image(systemName: "bus")
+                                    .font(.caption2)
+                                Text("\(busETA)m")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(context.state.recommendation.mode == .bus ? .primary : .secondary)
+                        }
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(context.state.recommendation.source.displayName)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                
+                Text("Updated: \(context.state.lastUpdated, style: .time)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+struct ETAView: View {
+    let icon: String
+    let time: Int
+    let isRecommended: Bool
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption)
+            Text("\(time) min")
+                .font(.caption)
+                .fontWeight(isRecommended ? .semibold : .regular)
+        }
+        .foregroundColor(isRecommended ? .primary : .secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isRecommended ? Color.primary.opacity(0.1) : Color.clear)
+        )
     }
 }
 
 extension TransportationRecommendationWidgetAttributes {
     fileprivate static var preview: TransportationRecommendationWidgetAttributes {
-        TransportationRecommendationWidgetAttributes(name: "World")
+        TransportationRecommendationWidgetAttributes(sessionId: "preview-session")
     }
 }
 
 extension TransportationRecommendationWidgetAttributes.ContentState {
-    fileprivate static var smiley: TransportationRecommendationWidgetAttributes.ContentState {
-        TransportationRecommendationWidgetAttributes.ContentState(emoji: "😀")
+    fileprivate static var walkRecommendation: TransportationRecommendationWidgetAttributes.ContentState {
+        TransportationRecommendationWidgetAttributes.ContentState(
+            recommendation: Recommendation.mockWalk,
+            lastUpdated: Date()
+        )
      }
      
-     fileprivate static var starEyes: TransportationRecommendationWidgetAttributes.ContentState {
-         TransportationRecommendationWidgetAttributes.ContentState(emoji: "🤩")
+     fileprivate static var busRecommendation: TransportationRecommendationWidgetAttributes.ContentState {
+         TransportationRecommendationWidgetAttributes.ContentState(
+            recommendation: Recommendation.mockBus,
+            lastUpdated: Date()
+         )
      }
 }
 
 #Preview("Notification", as: .content, using: TransportationRecommendationWidgetAttributes.preview) {
    TransportationRecommendationWidgetLiveActivity()
 } contentStates: {
-    TransportationRecommendationWidgetAttributes.ContentState.smiley
-    TransportationRecommendationWidgetAttributes.ContentState.starEyes
+    TransportationRecommendationWidgetAttributes.ContentState.walkRecommendation
+    TransportationRecommendationWidgetAttributes.ContentState.busRecommendation
 }

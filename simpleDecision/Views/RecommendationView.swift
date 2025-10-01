@@ -49,21 +49,21 @@ struct RecommendationView: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Mode and time
                 HStack {
-                    Text(recommendation.transportationMode.displayName)
+                    Text(recommendation.mode.displayName)
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(Color(recommendation.transportationMode.colorName))
+                        .foregroundColor(Color(recommendation.mode.colorName))
                     
                     Spacer()
                     
-                    Text(recommendation.primaryETA)
+                    Text("\(recommendation.primaryETA ?? 0) min")
                         .font(.title)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                 }
                 
-                // Reasoning
-                Text(recommendation.reasoning)
+                // Source
+                Text("Source: \(recommendation.source.displayName)")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -83,12 +83,12 @@ struct RecommendationView: View {
     private var transportationIcon: some View {
         ZStack {
             Circle()
-                .fill(Color(recommendation.transportationMode.colorName).opacity(0.2))
+                .fill(Color(recommendation.mode.colorName).opacity(0.2))
                 .frame(width: 60, height: 60)
             
-            Image(systemName: recommendation.transportationMode.iconName)
+            Image(systemName: recommendation.mode.iconName)
                 .font(.system(size: 28, weight: .medium))
-                .foregroundColor(Color(recommendation.transportationMode.colorName))
+                .foregroundColor(Color(recommendation.mode.colorName))
         }
     }
     
@@ -98,7 +98,7 @@ struct RecommendationView: View {
                 .font(.caption)
                 .foregroundColor(confidenceColor)
             
-            Text(recommendation.confidencePercentage)
+            Text("\(recommendation.confidencePercentage)%")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(confidenceColor)
@@ -117,7 +117,7 @@ struct RecommendationView: View {
             Text(recommendation.source.displayName)
                 .font(.caption2)
         }
-        .foregroundColor(.tertiary)
+        .foregroundColor(.secondary)
     }
     
     @ViewBuilder
@@ -130,11 +130,11 @@ struct RecommendationView: View {
                 detailRow("Created", value: formattedTimestamp)
                 detailRow("Weather", value: weatherDisplayText)
                 
-                if recommendation.transportationMode == .publicTransit {
+                if recommendation.mode == .bus {
                     detailRow("Data Source", value: "PRIM API (Île-de-France)")
                 }
                 
-                if recommendation.transportationMode == .walking {
+                if recommendation.mode == .walk {
                     detailRow("Walking Speed", value: "5 km/h average")
                 }
             }
@@ -205,7 +205,7 @@ struct RecommendationView: View {
     
     @ViewBuilder
     private var alternativeActionButton: some View {
-        if recommendation.transportationMode == .publicTransit {
+        if recommendation.mode == .bus {
             Button(action: {
                 // Open Maps app or show transit directions
                 openMapsForTransit()
@@ -249,7 +249,7 @@ struct RecommendationView: View {
             .fill(.regularMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(recommendation.transportationMode.colorName).opacity(0.3), lineWidth: 1)
+                    .stroke(Color(recommendation.mode.colorName).opacity(0.3), lineWidth: 1)
             )
     }
     
@@ -267,9 +267,9 @@ struct RecommendationView: View {
         switch recommendation.source {
         case .primAPI:
             return "globe"
-        case .algorithm:
+        case .localHeuristics:
             return "brain"
-        case .manual:
+        case .mock:
             return "hand.raised"
         }
     }
@@ -281,44 +281,27 @@ struct RecommendationView: View {
     }
     
     private var weatherDisplayText: String {
-        switch recommendation.weatherCondition {
-        case "rain":
-            return "🌧️ Rainy"
-        case "snow":
-            return "❄️ Snowy"
-        case "clear":
-            return "☀️ Clear"
-        default:
-            return "🌤️ \(recommendation.weatherCondition?.capitalized ?? "Unknown")"
-        }
+        return "�️ Clear"
     }
     
     private var recommendationTips: [String] {
         var tips: [String] = []
         
-        switch recommendation.transportationMode {
-        case .walking:
-            if recommendation.estimatedTimeMinutes > 15 {
+        switch recommendation.mode {
+        case .walk:
+            if let walkETA = recommendation.walkETA, walkETA > 15 {
                 tips.append("Consider bringing water for longer walks")
             }
-            if recommendation.weatherCondition == "rain" {
-                tips.append("Don't forget an umbrella!")
-            }
-            if recommendation.weatherCondition == "snow" {
-                tips.append("Wear appropriate footwear for icy conditions")
-            }
+            tips.append("Don't forget an umbrella if it looks like rain!")
             
-        case .publicTransit:
+        case .bus:
             tips.append("Check for service alerts before departing")
             if recommendation.confidence < 0.7 {
                 tips.append("Consider walking as backup if transit is delayed")
             }
             
-        case .bicycle:
-            tips.append("Check bike availability at nearby stations")
-            
-        case .car:
-            tips.append("Check traffic conditions before departing")
+        case .tie:
+            tips.append("Both options are equally good - choose based on your preference")
         }
         
         return tips
@@ -352,28 +335,19 @@ struct RecommendationView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
             // Walking recommendation
-            RecommendationView(recommendation: Recommendation.mockWalkingRecommendation)
+            RecommendationView(recommendation: Recommendation.mockWalk)
                 .padding()
                 .previewDisplayName("Walking")
             
             // Transit recommendation
-            RecommendationView(recommendation: Recommendation.mockTransitRecommendation)
+            RecommendationView(recommendation: Recommendation.mockBus)
                 .padding()
                 .previewDisplayName("Transit")
             
-            // Low confidence recommendation
-            RecommendationView(recommendation: Recommendation(
-                id: UUID(),
-                transportationMode: .walking,
-                estimatedTimeMinutes: 25,
-                confidence: 0.4,
-                reasoning: "Long walk with potential delays",
-                source: .algorithm,
-                timestamp: Date(),
-                weatherCondition: "rain"
-            ))
-            .padding()
-            .previewDisplayName("Low Confidence")
+            // Tie recommendation
+            RecommendationView(recommendation: Recommendation.mockTie)
+                .padding()
+                .previewDisplayName("Tie")
         }
         .previewLayout(.sizeThatFits)
     }

@@ -30,7 +30,7 @@ class RecommendationViewModel: ObservableObject {
     // MARK: - Services
     private let decisionEngine: DecisionEngine
     private let locationService: LocationService
-    private let activityManager: ActivityManager
+    private let activityManager: ActivityManagerProtocol
     private let settingsManager: AppSettingsManager
     
     // MARK: - Private Properties
@@ -40,10 +40,11 @@ class RecommendationViewModel: ObservableObject {
     private let refreshInterval: TimeInterval = 30
     
     // MARK: - Initialization
+    @MainActor
     init(
         decisionEngine: DecisionEngine,
         locationService: LocationService = LocationService(),
-        activityManager: ActivityManager = ActivityManager.shared,
+        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager(),
         settingsManager: AppSettingsManager = AppSettingsManager()
     ) {
         self.decisionEngine = decisionEngine
@@ -109,12 +110,10 @@ class RecommendationViewModel: ObservableObject {
             recommendation = newRecommendation
             startRefreshCycle()
             
-            // Update Live Activity if active
-            if #available(iOS 16.1, *), activityManager.currentActivity != nil {
-                await activityManager.updateActivity(with: newRecommendation)
-            }
-            
-        } catch {
+        // Update Live Activity if active
+        if #available(iOS 16.1, *), activityManager.hasActiveActivities() {
+            await activityManager.updateActivity(with: newRecommendation)
+        }        } catch {
             errorMessage = "Failed to refresh: \(error.localizedDescription)"
         }
     }
@@ -141,19 +140,19 @@ class RecommendationViewModel: ObservableObject {
         }
         
         // Add walking alternative if current is transit
-        if currentRec.transportationMode == .publicTransit {
+        if currentRec.mode == .bus {
             let walkingRec = createWalkingAlternative(destination: destination)
             alternatives.append(walkingRec)
         }
         
         // Add transit alternative if current is walking
-        if currentRec.transportationMode == .walking {
+        if currentRec.mode == .walk {
             // This would be a simplified transit option
             let transitRec = createTransitAlternative(destination: destination)
             alternatives.append(transitRec)
         }
         
-        alternativeRecommendations = alternatives.filter { $0.transportationMode != currentRec.transportationMode }
+        alternativeRecommendations = alternatives.filter { $0.mode != currentRec.mode }
         showingAlternatives = true
     }
     
@@ -164,7 +163,7 @@ class RecommendationViewModel: ObservableObject {
         triggerShowAnimation()
         
         // Update Live Activity
-        if #available(iOS 16.1, *), activityManager.currentActivity != nil {
+        if #available(iOS 16.1, *), activityManager.hasActiveActivities() {
             Task {
                 await activityManager.updateActivity(with: alternative)
             }
@@ -187,7 +186,11 @@ class RecommendationViewModel: ObservableObject {
         
         if #available(iOS 16.1, *) {
             Task {
-                await activityManager.startActivity(with: rec, destination: destination.name)
+                await activityManager.startActivity(
+                    destinationName: destination.name, 
+                    startLocationName: "Current Location",
+                    recommendation: rec
+                )
             }
         }
         
@@ -214,7 +217,7 @@ class RecommendationViewModel: ObservableObject {
         
         if #available(iOS 16.1, *) {
             Task {
-                await activityManager.endCurrentActivity()
+                await activityManager.endAllActivities()
             }
         }
     }
@@ -249,19 +252,24 @@ class RecommendationViewModel: ObservableObject {
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             
-            if self.timeUntilRefresh > 0 {
-                self.timeUntilRefresh -= 1
-            } else {
-                // Timer reached zero, will be reset by refresh timer
-                self.timeUntilRefresh = Int(self.refreshInterval)
+            Task { @MainActor in
+                if self.timeUntilRefresh > 0 {
+                    self.timeUntilRefresh -= 1
+                } else {
+                    // Timer reached zero, will be reset by refresh timer
+                    self.timeUntilRefresh = Int(self.refreshInterval)
+                }
             }
         }
         
         // Refresh timer
         refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
-            // Auto-refresh would happen here in a real implementation
-            // For now, we just reset the countdown
-            self?.timeUntilRefresh = Int(self?.refreshInterval ?? 30)
+            guard let self = self else { return }
+            Task { @MainActor in
+                // Auto-refresh would happen here in a real implementation
+                // For now, we just reset the countdown
+                self.timeUntilRefresh = Int(self.refreshInterval)
+            }
         }
     }
     
@@ -290,8 +298,8 @@ class RecommendationViewModel: ObservableObject {
     }
     
     private func createWalkingAlternative(destination: Destination) -> Recommendation {
-        guard let currentLocation = locationService.currentLocation else {
-            return Recommendation.mockWalkingRecommendation
+        guard locationService.currentLocation != nil else {
+            return Recommendation.mockWalk
         }
         
         let distance = locationService.distanceToDestination(destination.coordinate) ?? 1000
@@ -299,28 +307,24 @@ class RecommendationViewModel: ObservableObject {
         let timeMinutes = distance / walkingSpeedMps / 60
         
         return Recommendation(
-            id: UUID(),
-            transportationMode: .walking,
-            estimatedTimeMinutes: timeMinutes,
+            mode: .walk,
+            walkETA: Int(timeMinutes),
+            busETA: nil,
             confidence: max(0.3, 1.0 - (distance / 2000)), // Lower confidence for longer walks
-            reasoning: "Walking alternative (\(Int(distance))m)",
-            source: .algorithm,
             timestamp: Date(),
-            weatherCondition: weatherCondition
+            source: .localHeuristics
         )
     }
     
     private func createTransitAlternative(destination: Destination) -> Recommendation {
         // Simplified transit alternative
         return Recommendation(
-            id: UUID(),
-            transportationMode: .publicTransit,
-            estimatedTimeMinutes: 20,
+            mode: .bus,
+            walkETA: nil,
+            busETA: 20,
             confidence: 0.7,
-            reasoning: "Public transit alternative",
-            source: .algorithm,
             timestamp: Date(),
-            weatherCondition: weatherCondition
+            source: .localHeuristics
         )
     }
     
@@ -336,7 +340,7 @@ class RecommendationViewModel: ObservableObject {
     
     var isJourneyActive: Bool {
         if #available(iOS 16.1, *) {
-            return activityManager.currentActivity != nil
+            return activityManager.hasActiveActivities()
         } else {
             return recommendation != nil && refreshTimer != nil
         }
@@ -380,6 +384,8 @@ class RecommendationViewModel: ObservableObject {
     }
     
     deinit {
-        stopRefreshCycle()
+        // Clean up timers synchronously to avoid Task outliving object
+        refreshTimer?.invalidate()
+        countdownTimer?.invalidate()
     }
 }

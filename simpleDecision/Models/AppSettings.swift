@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreLocation
+import Combine
 
 /// User preferences and API configuration
 struct AppSettings: Codable {
@@ -16,7 +17,7 @@ struct AppSettings: Codable {
     let defaultDestination: UUID?
     let lastKnownLocation: CLLocationCoordinate2D?
     let refreshIntervalSeconds: Int
-    let enableDebugControls: Bool
+    var enableDebugControls: Bool
     
     /// Default settings for new installations
     static let defaultSettings = AppSettings(

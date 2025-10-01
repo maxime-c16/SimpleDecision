@@ -20,7 +20,13 @@ struct DebugControlsView: View {
     @State private var activityTestMode = ActivityTestMode.walking
     @State private var showingActivityControls = false
     
-    private let activityManager = ActivityManager.shared
+    private let activityManager = ActivityManagerFactory.createActivityManager()
+    
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
     
     var body: some View {
         VStack(spacing: 16) {
@@ -127,7 +133,7 @@ struct DebugControlsView: View {
                     }
                     .buttonStyle(.bordered)
                     .font(.caption)
-                    .disabled(activityManager.currentActivity == nil)
+                    .disabled(!activityManager.hasActiveActivities())
                     
                     // End activity
                     Button("End") {
@@ -135,7 +141,7 @@ struct DebugControlsView: View {
                     }
                     .buttonStyle(.bordered)
                     .font(.caption)
-                    .disabled(activityManager.currentActivity == nil)
+                    .disabled(!activityManager.hasActiveActivities())
                 }
                 
                 // Activity status
@@ -144,7 +150,7 @@ struct DebugControlsView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    if activityManager.currentActivity != nil {
+                    if activityManager.hasActiveActivities() {
                         Text("Active")
                             .font(.caption2)
                             .foregroundColor(.green)
@@ -156,9 +162,9 @@ struct DebugControlsView: View {
                     
                     Spacer()
                     
-                    Text("Supported: \(activityManager.isActivitySupported ? "Yes" : "No")")
+                    Text("Supported: \(activityManager.isActivitySupported() ? "Yes" : "No")")
                         .font(.caption2)
-                        .foregroundColor(activityManager.isActivitySupported ? .green : .red)
+                        .foregroundColor(activityManager.isActivitySupported() ? .green : .red)
                 }
             }
         }
@@ -190,9 +196,7 @@ struct DebugControlsView: View {
                         .foregroundColor(backgroundScheduler.isBackgroundRefreshEnabled ? .green : .red)
                     
                     if let lastRefresh = backgroundScheduler.lastBackgroundRefresh {
-                        let formatter = DateFormatter()
-                        formatter.timeStyle = .short
-                        Text("Last: \(formatter.string(from: lastRefresh))")
+                        Text("Last: \(Self.timeFormatter.string(from: lastRefresh))")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     } else {
@@ -213,7 +217,7 @@ struct DebugControlsView: View {
                 systemInfoRow("iOS Version", value: UIDevice.current.systemVersion)
                 systemInfoRow("Device", value: UIDevice.current.model)
                 systemInfoRow("PRIM API", value: settingsManager.settings.primAPIEnabled ? "Enabled" : "Disabled")
-                systemInfoRow("Location Auth", value: locationService.authorizationStatus.debugDescription)
+                systemInfoRow("Location Auth", value: "\(locationService.authorizationStatus)")
                 
                 if #available(iOS 16.1, *) {
                     systemInfoRow("ActivityKit", value: "Available")
@@ -274,8 +278,9 @@ struct DebugControlsView: View {
         let testRecommendation = activityTestMode.mockRecommendation
         Task {
             await activityManager.startActivity(
-                with: testRecommendation,
-                destination: "Test Destination"
+                destinationName: "Test Destination",
+                startLocationName: "Current Location",
+                recommendation: testRecommendation
             )
         }
     }
@@ -291,7 +296,7 @@ struct DebugControlsView: View {
     @available(iOS 16.1, *)
     private func endTestActivity() {
         Task {
-            await activityManager.endCurrentActivity()
+            await activityManager.endAllActivities()
         }
     }
 }
@@ -342,47 +347,39 @@ enum ActivityTestMode: String, CaseIterable {
         switch self {
         case .walking:
             return Recommendation(
-                id: UUID(),
-                transportationMode: .walking,
-                estimatedTimeMinutes: 12,
+                mode: .walk,
+                walkETA: 12,
+                busETA: nil,
                 confidence: 0.9,
-                reasoning: "Debug walking test",
-                source: .manual,
                 timestamp: Date(),
-                weatherCondition: "clear"
+                source: .mock
             )
         case .transit:
             return Recommendation(
-                id: UUID(),
-                transportationMode: .publicTransit,
-                estimatedTimeMinutes: 18,
+                mode: .bus,
+                walkETA: nil,
+                busETA: 18,
                 confidence: 0.8,
-                reasoning: "Debug transit test - Line 1",
-                source: .primAPI,
                 timestamp: Date(),
-                weatherCondition: "clear"
+                source: .primAPI
             )
         case .bicycle:
             return Recommendation(
-                id: UUID(),
-                transportationMode: .bicycle,
-                estimatedTimeMinutes: 8,
+                mode: .walk,
+                walkETA: 8,
+                busETA: nil,
                 confidence: 0.75,
-                reasoning: "Debug bicycle test",
-                source: .algorithm,
                 timestamp: Date(),
-                weatherCondition: "clear"
+                source: .localHeuristics
             )
         case .car:
             return Recommendation(
-                id: UUID(),
-                transportationMode: .car,
-                estimatedTimeMinutes: 15,
+                mode: .bus,
+                walkETA: nil,
+                busETA: 15,
                 confidence: 0.6,
-                reasoning: "Debug car test with traffic",
-                source: .algorithm,
                 timestamp: Date(),
-                weatherCondition: "clear"
+                source: .localHeuristics
             )
         }
     }

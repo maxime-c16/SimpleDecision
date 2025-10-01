@@ -9,6 +9,7 @@ import Foundation
 import BackgroundTasks
 import Combine
 import UserNotifications
+import UIKit
 
 /// Handles background refresh and scheduling for the transportation recommendation system
 class BackgroundScheduler: ObservableObject {
@@ -169,7 +170,7 @@ class BackgroundScheduler: ObservableObject {
 }
 
 // MARK: - Background Operations
-class BackgroundRefreshOperation: Operation {
+class BackgroundRefreshOperation: Operation, @unchecked Sendable {
     override func main() {
         guard !isCancelled else { return }
         
@@ -187,7 +188,7 @@ class BackgroundRefreshOperation: Operation {
     }
 }
 
-class BackgroundProcessingOperation: Operation {
+class BackgroundProcessingOperation: Operation, @unchecked Sendable {
     override func main() {
         guard !isCancelled else { return }
         

@@ -48,13 +48,38 @@ struct PRIMResponse: Codable {
 
 /// Individual transit departure information
 struct Departure: Codable, Identifiable {
-    let id = UUID()
+    let id: UUID
     let lineName: String              // e.g., "RER A", "Bus 122"
     let destinationName: String       // e.g., "Saint-Germain-en-Laye"
     let expectedDepartureTime: Date   // ISO 8601 format from API
     let departureStatus: String       // "onTime", "delayed", "early"
     let platformName: String          // Platform or stop designation
     let direction: String?            // Full direction description
+    
+    enum CodingKeys: String, CodingKey {
+        case lineName, destinationName, expectedDepartureTime, departureStatus, platformName, direction
+    }
+    
+    init(lineName: String, destinationName: String, expectedDepartureTime: Date, departureStatus: String, platformName: String, direction: String? = nil) {
+        self.id = UUID()
+        self.lineName = lineName
+        self.destinationName = destinationName
+        self.expectedDepartureTime = expectedDepartureTime
+        self.departureStatus = departureStatus
+        self.platformName = platformName
+        self.direction = direction
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.lineName = try container.decode(String.self, forKey: .lineName)
+        self.destinationName = try container.decode(String.self, forKey: .destinationName)
+        self.expectedDepartureTime = try container.decode(Date.self, forKey: .expectedDepartureTime)
+        self.departureStatus = try container.decode(String.self, forKey: .departureStatus)
+        self.platformName = try container.decode(String.self, forKey: .platformName)
+        self.direction = try container.decodeIfPresent(String.self, forKey: .direction)
+    }
     
     /// Minutes until departure
     var minutesUntilDeparture: Int {

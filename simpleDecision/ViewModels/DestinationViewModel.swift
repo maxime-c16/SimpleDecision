@@ -40,8 +40,8 @@ class DestinationViewModel: ObservableObject {
     
     // MARK: - Initialization
     init(
-        locationService: LocationService = LocationService(),
-        settingsManager: AppSettingsManager = AppSettingsManager()
+        locationService: LocationService,
+        settingsManager: AppSettingsManager
     ) {
         self.locationService = locationService
         self.settingsManager = settingsManager
@@ -98,7 +98,8 @@ class DestinationViewModel: ObservableObject {
             name: name,
             address: address,
             coordinate: coordinate,
-            category: .custom
+            category: .custom,
+            isDefault: false
         )
         
         destinations.append(newDestination)
@@ -130,7 +131,7 @@ class DestinationViewModel: ObservableObject {
     
     /// Get distance to destination from current location
     func distanceToDestination(_ destination: Destination) -> String {
-        guard let currentLocation = locationService.currentLocation else {
+        guard locationService.currentLocation != nil else {
             return "Distance unknown"
         }
         
@@ -139,7 +140,7 @@ class DestinationViewModel: ObservableObject {
     
     /// Get estimated walking time to destination
     func walkingTimeToDestination(_ destination: Destination) -> String {
-        guard let currentLocation = locationService.currentLocation else {
+        guard locationService.currentLocation != nil else {
             return "Time unknown"
         }
         
@@ -267,56 +268,3 @@ enum SortOption: String, CaseIterable {
     }
 }
 
-// MARK: - Destination Category Extension
-extension DestinationCategory {
-    var sortOrder: Int {
-        switch self {
-        case .work:
-            return 1
-        case .home:
-            return 2
-        case .transport:
-            return 3
-        case .shopping:
-            return 4
-        case .entertainment:
-            return 5
-        case .custom:
-            return 6
-        }
-    }
-    
-    var displayName: String {
-        switch self {
-        case .work:
-            return "Work"
-        case .home:
-            return "Home"
-        case .transport:
-            return "Transport"
-        case .shopping:
-            return "Shopping"
-        case .entertainment:
-            return "Entertainment"
-        case .custom:
-            return "Custom"
-        }
-    }
-    
-    var systemImage: String {
-        switch self {
-        case .work:
-            return "building.2"
-        case .home:
-            return "house"
-        case .transport:
-            return "tram"
-        case .shopping:
-            return "bag"
-        case .entertainment:
-            return "theatermasks"
-        case .custom:
-            return "star"
-        }
-    }
-}

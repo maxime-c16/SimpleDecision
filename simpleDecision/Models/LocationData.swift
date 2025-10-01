@@ -9,7 +9,7 @@ import Foundation
 import CoreLocation
 
 /// User location and destination for ETA calculations
-struct LocationData: Codable, Equatable {
+struct LocationData: Codable {
     let currentLocation: CLLocationCoordinate2D?
     let destination: Destination
     let lastUpdated: Date
@@ -35,11 +35,23 @@ struct LocationData: Codable, Equatable {
     }
 }
 
+/// Destination category for organization
+enum DestinationCategory: String, Codable, CaseIterable {
+    case work = "work"
+    case home = "home"
+    case transport = "transport"
+    case shopping = "shopping"
+    case entertainment = "entertainment"
+    case custom = "custom"
+}
+
 /// Destination information
-struct Destination: Codable, Equatable, Identifiable {
+struct Destination: Codable, Identifiable {
     let id: UUID
     let name: String
+    let address: String
     let coordinate: CLLocationCoordinate2D
+    let category: DestinationCategory
     let isDefault: Bool
     
     /// Validate coordinate bounds
@@ -60,8 +72,40 @@ struct Destination: Codable, Equatable, Identifiable {
     }
 }
 
+// MARK: - Equatable Conformance
+extension LocationData: Equatable {
+    static func == (lhs: LocationData, rhs: LocationData) -> Bool {
+        // Compare optional coordinates manually
+        let locationsEqual: Bool
+        switch (lhs.currentLocation, rhs.currentLocation) {
+        case (nil, nil):
+            locationsEqual = true
+        case (let loc1?, let loc2?):
+            locationsEqual = loc1.latitude == loc2.latitude && loc1.longitude == loc2.longitude
+        default:
+            locationsEqual = false
+        }
+        
+        return locationsEqual && 
+               lhs.destination == rhs.destination && 
+               lhs.lastUpdated == rhs.lastUpdated
+    }
+}
+
+extension Destination: Equatable {
+    static func == (lhs: Destination, rhs: Destination) -> Bool {
+        return lhs.id == rhs.id &&
+               lhs.name == rhs.name &&
+               lhs.address == rhs.address &&
+               lhs.coordinate.latitude == rhs.coordinate.latitude &&
+               lhs.coordinate.longitude == rhs.coordinate.longitude &&
+               lhs.category == rhs.category &&
+               lhs.isDefault == rhs.isDefault
+    }
+}
+
 // MARK: - CLLocationCoordinate2D Codable Extension
-extension CLLocationCoordinate2D: Codable {
+extension CLLocationCoordinate2D: @retroactive Codable {
     enum CodingKeys: String, CodingKey {
         case latitude
         case longitude
@@ -101,17 +145,106 @@ extension Destination {
     /// Mock destinations for development
     static let mockWork = Destination(
         id: UUID(),
-        name: "Work",
-        coordinate: CLLocationCoordinate2D(latitude: 48.8606, longitude: 2.3376), // Louvre area
+        name: "Office La Défense",
+        address: "1 Esplanade du Général de Gaulle, 92400 Courbevoie",
+        coordinate: CLLocationCoordinate2D(latitude: 48.8915, longitude: 2.2388),
+        category: .work,
         isDefault: true
     )
     
     static let mockHome = Destination(
         id: UUID(),
         name: "Home",
-        coordinate: CLLocationCoordinate2D(latitude: 48.8471, longitude: 2.4125), // Vincennes area
+        address: "Paris 11e Arrondissement, France",
+        coordinate: CLLocationCoordinate2D(latitude: 48.8566, longitude: 2.3650),
+        category: .home,
         isDefault: false
     )
     
-    static let mockDestinations = [mockWork, mockHome]
+    static let mockChatelet = Destination(
+        id: UUID(),
+        name: "Châtelet - Les Halles",
+        address: "Place Marguerite de Navarre, 75001 Paris",
+        coordinate: CLLocationCoordinate2D(latitude: 48.8606, longitude: 2.3472),
+        category: .transport,
+        isDefault: false
+    )
+    
+    static let mockLouvre = Destination(
+        id: UUID(),
+        name: "Musée du Louvre",
+        address: "Rue de Rivoli, 75001 Paris",
+        coordinate: CLLocationCoordinate2D(latitude: 48.8606, longitude: 2.3376),
+        category: .entertainment,
+        isDefault: false
+    )
+    
+    /// Array of all mock destinations
+    static let mockDestinations = [
+        mockWork,
+        mockHome, 
+        mockChatelet,
+        mockLouvre
+    ]
+}
+
+extension LocationData {
+    /// Access to mock destinations from LocationData
+    static var mockDestinations: [Destination] {
+        return Destination.mockDestinations
+    }
+}
+
+// MARK: - DestinationCategory Extension
+extension DestinationCategory {
+    var sortOrder: Int {
+        switch self {
+        case .work:
+            return 1
+        case .home:
+            return 2
+        case .transport:
+            return 3
+        case .shopping:
+            return 4
+        case .entertainment:
+            return 5
+        case .custom:
+            return 6
+        }
+    }
+    
+    var displayName: String {
+        switch self {
+        case .work:
+            return "Work"
+        case .home:
+            return "Home"
+        case .transport:
+            return "Transport"
+        case .shopping:
+            return "Shopping"
+        case .entertainment:
+            return "Entertainment"
+        case .custom:
+            return "Custom"
+        }
+    }
+    
+    var systemImage: String {
+        switch self {
+        case .work:
+            return "building.2"
+        case .home:
+            return "house"
+        case .transport:
+            return "tram"
+        case .shopping:
+            return "bag"
+        case .entertainment:
+            return "theatermasks"
+        case .custom:
+            return "star"
+        }
+    }
 }

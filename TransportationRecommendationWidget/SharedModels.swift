@@ -1,11 +1,36 @@
 //
-//  Recommendation.swift
-//  simpleDecision
+//  SharedModels.swift
+//  TransportationRecommendationWidget
 //
-//  Created by Transportation Recommendation System on 30/09/2025.
+//  Created by Transportation Recommendation System on 01/10/2025.
 //
 
 import Foundation
+import ActivityKit
+
+// MARK: - Live Activity Attributes
+
+/// Shared ActivityAttributes for Live Activities - used by both main app and widget extension
+@available(iOS 16.1, *)
+public struct TransportationRecommendationWidgetAttributes: ActivityAttributes {
+    public struct ContentState: Codable, Hashable {
+        public let recommendation: Recommendation
+        public let lastUpdated: Date
+        
+        public init(recommendation: Recommendation, lastUpdated: Date) {
+            self.recommendation = recommendation
+            self.lastUpdated = lastUpdated
+        }
+    }
+    
+    public let sessionId: String
+    
+    public init(sessionId: String) {
+        self.sessionId = sessionId
+    }
+}
+
+// MARK: - Shared Models for Widget Extension
 
 /// Core decision output with transportation mode and metadata
 public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
@@ -30,7 +55,7 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.timestamp = timestamp
         self.source = source
     }
-
+    
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = UUID()
@@ -40,21 +65,6 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.confidence = try container.decode(Double.self, forKey: .confidence)
         self.timestamp = try container.decode(Date.self, forKey: .timestamp)
         self.source = try container.decode(RecommendationSource.self, forKey: .source)
-    }
-    
-    /// Validation for recommendation data integrity
-    public var isValid: Bool {
-        // Confidence must be between 0.0 and 1.0
-        guard confidence >= 0.0 && confidence <= 1.0 else { return false }
-        
-        // At least one ETA should be non-nil for non-tie recommendations
-        if mode != .tie && walkETA == nil && busETA == nil {
-            return false
-        }
-        
-        // Timestamp should be recent (within last 5 minutes for validity)
-        let fiveMinutesAgo = Date().addingTimeInterval(-300)
-        return timestamp > fiveMinutesAgo
     }
     
     /// Primary ETA based on recommended mode
@@ -73,9 +83,36 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
     public var confidencePercentage: Int {
         Int(confidence * 100)
     }
+    
+    // Mock data for development
+    public static let mockWalk = Recommendation(
+        mode: .walk,
+        walkETA: 12,
+        busETA: nil,
+        confidence: 0.9,
+        timestamp: Date(),
+        source: .mock
+    )
+    
+    public static let mockBus = Recommendation(
+        mode: .bus,
+        walkETA: nil,
+        busETA: 18,
+        confidence: 0.8,
+        timestamp: Date(),
+        source: .mock
+    )
+    
+    public static let mockTie = Recommendation(
+        mode: .tie,
+        walkETA: 15,
+        busETA: 15,
+        confidence: 0.5,
+        timestamp: Date(),
+        source: .mock
+    )
 }
 
-/// Transportation mode options
 public enum TransportationMode: String, Codable, CaseIterable {
     case walk = "Walk"
     case bus = "Bus" 
@@ -123,38 +160,4 @@ public enum RecommendationSource: String, Codable {
         case .mock: return "Mock Data"
         }
     }
-}
-
-// MARK: - Mock Data for Development
-public extension Recommendation {
-    /// Mock recommendation for development and testing
-    static let mockWalk = Recommendation(
-        mode: .walk,
-        walkETA: 12,
-        busETA: 15,
-        confidence: 0.8,
-        timestamp: Date(),
-        source: .mock
-    )
-    
-    static let mockBus = Recommendation(
-        mode: .bus,
-        walkETA: 18,
-        busETA: 8,
-        confidence: 0.9,
-        timestamp: Date(),
-        source: .mock
-    )
-    
-    static let mockTie = Recommendation(
-        mode: .tie,
-        walkETA: 10,
-        busETA: 10,
-        confidence: 0.7,
-        timestamp: Date(),
-        source: .mock
-    )
-    
-    /// Array of mock recommendations for testing
-    static let mockRecommendations = [mockWalk, mockBus, mockTie]
 }

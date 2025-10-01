@@ -8,25 +8,43 @@
 import Foundation
 import CoreLocation
 import Combine
+import Security
 
 /// HTTP client for PRIM API - real transit data for Paris region
 class PRIMClient: ObservableObject {
     static let shared = PRIMClient()
     
     private let baseURL = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring"
-    private let apiKey = "r1NDADYoOpUH6qS5XkJoPhiRrNjPpee5"
+    private let defaultAPIKey = "r1NDADYoOpUH6qS5XkJoPhiRrNjPpee5" // Development fallback
     private let session = URLSession.shared
     private var cancellables = Set<AnyCancellable>()
+    
+    // Rate limiting - 5 requests per second max
+    private let rateLimiter = RateLimiter(maxRequests: 5, timeWindow: 1.0)
     
     @Published var isLoading = false
     @Published var lastError: String?
     
     private init() {}
     
-    /// Fetch real-time departures from PRIM API
+    /// Get API key from Keychain or fallback to default
+    private var apiKey: String {
+        if let storedKey = KeychainHelper.shared.get(key: "PRIM_API_KEY") {
+            return storedKey
+        }
+        return defaultAPIKey
+    }
+    
+    /// Fetch real-time departures from PRIM API with rate limiting and retry logic
     func fetchDepartures(for stopCode: String) -> AnyPublisher<PRIMResponse, Error> {
         guard !stopCode.isEmpty else {
             return Fail(error: PRIMError.invalidStopCode)
+                .eraseToAnyPublisher()
+        }
+        
+        // Check rate limit
+        guard rateLimiter.canMakeRequest() else {
+            return Fail(error: PRIMError.rateLimitExceeded)
                 .eraseToAnyPublisher()
         }
         
@@ -47,10 +65,12 @@ class PRIMClient: ObservableObject {
         request.timeoutInterval = 10.0
         
         isLoading = true
+        rateLimiter.recordRequest()
         
         return session.dataTaskPublisher(for: request)
             .map(\.data)
             .decode(type: PRIMResponse.self, decoder: JSONDecoder())
+            .retry(2) // Retry up to 2 times on failure
             .handleEvents(
                 receiveCompletion: { [weak self] _ in
                     DispatchQueue.main.async {
@@ -69,7 +89,10 @@ class PRIMClient: ObservableObject {
                 }
                 
                 // Return mock data on API failure for graceful degradation
-                return Just(self?.mockPRIMResponse(for: stopCode) ?? PRIMResponse.mockResponse)
+                return Just(self?.mockPRIMResponse(for: stopCode) ?? PRIMResponse(
+                    departures: [],
+                    responseTimestamp: Date()
+                ))
                     .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
@@ -107,6 +130,16 @@ class PRIMClient: ObservableObject {
             .eraseToAnyPublisher()
     }
     
+    /// Save API key to Keychain
+    func saveAPIKey(_ key: String) -> Bool {
+        return KeychainHelper.shared.save(key: "PRIM_API_KEY", value: key)
+    }
+    
+    /// Remove API key from Keychain
+    func removeAPIKey() -> Bool {
+        return KeychainHelper.shared.delete(key: "PRIM_API_KEY")
+    }
+    
     /// Clear any stored errors
     func clearError() {
         lastError = nil
@@ -119,26 +152,31 @@ class PRIMClient: ObservableObject {
                 lineName: "1",
                 destinationName: "Château de Vincennes",
                 expectedDepartureTime: Date().addingTimeInterval(3 * 60), // 3 minutes
-                departureStatus: "onTime"
+                departureStatus: "onTime",
+                platformName: "Quai 1",
+                direction: "Direction Château de Vincennes"
             ),
             Departure(
                 lineName: "4",
                 destinationName: "Porte de Clignancourt",
                 expectedDepartureTime: Date().addingTimeInterval(7 * 60), // 7 minutes
-                departureStatus: "onTime"
+                departureStatus: "onTime",
+                platformName: "Quai 2",
+                direction: "Direction Porte de Clignancourt"
             ),
             Departure(
                 lineName: "11",
                 destinationName: "Mairie des Lilas",
                 expectedDepartureTime: Date().addingTimeInterval(12 * 60), // 12 minutes
-                departureStatus: "delayed"
+                departureStatus: "delayed",
+                platformName: "Quai 3",
+                direction: "Direction Mairie des Lilas"
             )
         ]
         
         return PRIMResponse(
-            responseTimestamp: Date(),
-            stopMonitoringDelivery: departures,
-            isRealTime: false
+            departures: departures,
+            responseTimestamp: Date()
         )
     }
 }
@@ -156,6 +194,95 @@ struct TransitStop: Codable, Identifiable {
         } else {
             return String(format: "%.1fkm", distance / 1000)
         }
+    }
+}
+
+// MARK: - Rate Limiter
+class RateLimiter {
+    private let maxRequests: Int
+    private let timeWindow: TimeInterval
+    private var requestTimes: [Date] = []
+    private let queue = DispatchQueue(label: "rate.limiter", attributes: .concurrent)
+    
+    init(maxRequests: Int, timeWindow: TimeInterval) {
+        self.maxRequests = maxRequests
+        self.timeWindow = timeWindow
+    }
+    
+    func canMakeRequest() -> Bool {
+        return queue.sync {
+            let now = Date()
+            let cutoff = now.addingTimeInterval(-timeWindow)
+            
+            // Remove old requests outside the time window
+            requestTimes.removeAll { $0 < cutoff }
+            
+            return requestTimes.count < maxRequests
+        }
+    }
+    
+    func recordRequest() {
+        queue.async(flags: .barrier) {
+            self.requestTimes.append(Date())
+        }
+    }
+}
+
+// MARK: - Keychain Helper
+class KeychainHelper {
+    static let shared = KeychainHelper()
+    private let service = "simpleDecision.keychain"
+    
+    private init() {}
+    
+    func save(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        
+        // Delete existing item first
+        SecItemDelete(query as CFDictionary)
+        
+        let status = SecItemAdd(query as CFDictionary, nil)
+        return status == errSecSuccess
+    }
+    
+    func get(key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let string = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        
+        return string
+    }
+    
+    func delete(key: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        return status == errSecSuccess
     }
 }
 

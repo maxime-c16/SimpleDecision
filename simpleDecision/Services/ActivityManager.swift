@@ -8,60 +8,74 @@
 import Foundation
 import ActivityKit
 import SwiftUI
+import Combine
+
+/// Protocol for Activity Management (supports both iOS 16.1+ and fallback implementations)
+protocol ActivityManagerProtocol {
+    func startActivity(destinationName: String, startLocationName: String, recommendation: Recommendation) async -> Bool
+    func updateActivity(with recommendation: Recommendation) async -> Bool
+    func endAllActivities() async -> Bool
+    func markActivityCompleted() async -> Bool
+    func isActivitySupported() -> Bool
+    func hasActiveActivities() -> Bool
+    var canStartActivity: Bool { get }
+}
 
 /// Manages Live Activities for displaying transportation recommendations on Lock Screen and Dynamic Island
+/// Official ActivityKit implementation following Apple's recommended patterns
 @available(iOS 16.1, *)
-class ActivityManager: ObservableObject {
-    static let shared = ActivityManager()
+class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
+    nonisolated static let shared = LiveActivityManager()
     
-    @Published var currentActivity: Activity<TransportationActivityAttributes>?
+    @Published var currentActivity: Activity<TransportationRecommendationWidgetAttributes>?
     @Published var activityError: String?
-    @Published var isActivitySupported: Bool
+    @Published var isActivitiesEnabled: Bool
+    
+    private var activityUpdateTask: Task<Void, Never>?
     
     private init() {
-        self.isActivitySupported = ActivityAuthorizationInfo().areActivitiesEnabled
+        self.isActivitiesEnabled = ActivityAuthorizationInfo().areActivitiesEnabled
         
         // Monitor activity authorization changes
-        Task {
-            for await update in ActivityAuthorizationInfo().activityEnablementUpdates {
-                await MainActor.run {
-                    self.isActivitySupported = update
-                }
-            }
-        }
+        startMonitoringActivityAuthorization()
+        
+        // Monitor existing activities on app launch
+        restoreActiveActivities()
     }
     
-    /// Start a new Live Activity with transportation recommendation
-    func startActivity(with recommendation: Recommendation, destination: String) async {
-        guard isActivitySupported else {
-            activityError = "Live Activities are not enabled"
-            return
+    deinit {
+        activityUpdateTask?.cancel()
+    }
+    
+    // MARK: - ActivityManagerProtocol Implementation
+    
+    func startActivity(destinationName: String, startLocationName: String, recommendation: Recommendation) async -> Bool {
+        guard isActivitiesEnabled else {
+            await updateError("Live Activities are not enabled by user")
+            return false
         }
         
         // End any existing activity first
-        await endCurrentActivity()
+        await endAllActivities()
         
-        let attributes = TransportationActivityAttributes(
-            destinationName: destination,
-            startTime: Date()
+        let attributes = TransportationRecommendationWidgetAttributes(
+            destinationName: destinationName,
+            originName: startLocationName
         )
         
-        let initialState = TransportationActivityAttributes.ContentState(
+        let initialState = TransportationRecommendationWidgetAttributes.ContentState(
             recommendation: recommendation,
-            status: .active,
             lastUpdated: Date()
         )
         
-        let content = ActivityContent(
-            state: initialState,
-            staleDate: Date().addingTimeInterval(300) // 5 minutes stale date
-        )
-        
         do {
-            let activity = try Activity<TransportationActivityAttributes>.request(
+            // Simple Activity.request without push notifications (app-only updates)
+            let activity = try Activity.request(
                 attributes: attributes,
-                content: content,
-                pushType: nil // Local updates only
+                content: ActivityContent(
+                    state: initialState,
+                    staleDate: Date().addingTimeInterval(120) // 2 minutes staleness
+                )
             )
             
             await MainActor.run {
@@ -69,81 +83,112 @@ class ActivityManager: ObservableObject {
                 self.activityError = nil
             }
             
-            // Schedule automatic end after estimated time
-            scheduleActivityEnd(after: recommendation.estimatedTimeMinutes * 60)
+            // Schedule automatic end after reasonable time (8 hours max)
+            scheduleAutomaticEnd(after: TimeInterval(8 * 60 * 60)) // 8 hours
+            
+            return true
             
         } catch {
-            await MainActor.run {
-                self.activityError = "Failed to start Live Activity: \(error.localizedDescription)"
-            }
+            await updateError("Failed to start Live Activity: \(error.localizedDescription)")
+            return false
         }
     }
     
-    /// Update existing Live Activity with new recommendation data
-    func updateActivity(with recommendation: Recommendation) async {
-        guard let activity = currentActivity else { return }
+    func updateActivity(with recommendation: Recommendation) async -> Bool {
+        guard let activity = currentActivity else { 
+            return false 
+        }
         
-        let updatedState = TransportationActivityAttributes.ContentState(
+        let updatedState = TransportationRecommendationWidgetAttributes.ContentState(
             recommendation: recommendation,
-            status: .active,
             lastUpdated: Date()
         )
         
-        let content = ActivityContent(
-            state: updatedState,
-            staleDate: Date().addingTimeInterval(300) // 5 minutes stale date
+        await activity.update(
+            ActivityContent(
+                state: updatedState,
+                staleDate: Date().addingTimeInterval(120) // 2 minutes staleness
+            )
         )
         
-        await activity.update(content)
+        return true
     }
     
-    /// Mark activity as completed (user arrived)
-    func markActivityCompleted(with message: String = "Journey completed") async {
-        guard let activity = currentActivity else { return }
+    func endAllActivities() async -> Bool {
+        var hasEnded = false
         
-        let completedState = TransportationActivityAttributes.ContentState(
-            recommendation: activity.content.state.recommendation,
-            status: .completed,
-            lastUpdated: Date(),
-            statusMessage: message
-        )
+        // End current managed activity
+        if let activity = currentActivity {
+            await endActivity(activity)
+            hasEnded = true
+        }
         
-        let content = ActivityContent(
-            state: completedState,
-            staleDate: Date().addingTimeInterval(60) // End after 1 minute
-        )
+        // End any other transportation activities (cleanup)
+        for activity in Activity<TransportationRecommendationWidgetAttributes>.activities {
+            if activity.id != currentActivity?.id {
+                await activity.end(nil, dismissalPolicy: .immediate)
+                hasEnded = true
+            }
+        }
         
-        await activity.update(content)
+        await MainActor.run {
+            self.currentActivity = nil
+        }
         
-        // End activity after brief delay to show completion
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            Task {
-                await self.endActivity(activity)
+        return hasEnded
+    }
+    
+    func isActivitySupported() -> Bool {
+        return isActivitiesEnabled
+    }
+    
+    func hasActiveActivities() -> Bool {
+        return currentActivity != nil
+    }
+    
+    func markActivityCompleted() async -> Bool {
+        return await markActivityCompleted(with: "Journey completed")
+    }
+    
+    var canStartActivity: Bool {
+        return isActivitiesEnabled && currentActivity == nil
+    }
+    
+    
+    // MARK: - Private Implementation
+    
+    /// Monitor activity authorization changes
+    private func startMonitoringActivityAuthorization() {
+        activityUpdateTask = Task {
+            for await update in ActivityAuthorizationInfo().activityEnablementUpdates {
+                await MainActor.run {
+                    self.isActivitiesEnabled = update
+                    if !update {
+                        // If activities become disabled, end current activity
+                        Task {
+                            await self.endAllActivities()
+                        }
+                    }
+                }
             }
         }
     }
     
-    /// End current Live Activity
-    func endCurrentActivity() async {
-        guard let activity = currentActivity else { return }
-        await endActivity(activity)
+    /// Restore any existing activities on app launch
+    private func restoreActiveActivities() {
+        Task {
+            let activities = Activity<TransportationRecommendationWidgetAttributes>.activities
+            if let latestActivity = activities.last {
+                await MainActor.run {
+                    self.currentActivity = latestActivity
+                }
+            }
+        }
     }
     
-    /// End specific Live Activity
-    private func endActivity(_ activity: Activity<TransportationActivityAttributes>) async {
-        let finalState = TransportationActivityAttributes.ContentState(
-            recommendation: activity.content.state.recommendation,
-            status: .ended,
-            lastUpdated: Date(),
-            statusMessage: "Activity ended"
-        )
-        
-        let content = ActivityContent(
-            state: finalState,
-            staleDate: nil
-        )
-        
-        await activity.end(content, dismissalPolicy: .immediate)
+    /// End specific activity
+    private func endActivity(_ activity: Activity<TransportationRecommendationWidgetAttributes>) async {
+        await activity.end(nil, dismissalPolicy: .immediate)
         
         await MainActor.run {
             if self.currentActivity?.id == activity.id {
@@ -152,19 +197,58 @@ class ActivityManager: ObservableObject {
         }
     }
     
-    /// Schedule automatic activity end
-    private func scheduleActivityEnd(after seconds: Double) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+    /// Schedule automatic activity end (safety measure)
+    private func scheduleAutomaticEnd(after timeInterval: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeInterval) {
             Task {
-                await self.markActivityCompleted(with: "Estimated arrival time reached")
+                await self.endAllActivities()
             }
         }
     }
     
-    /// Check if Live Activities are available and enabled
-    var canStartActivity: Bool {
-        return isActivitySupported && currentActivity == nil
+    /// Generate unique session ID for activity
+    private func generateSessionId(destination: String, start: String) -> String {
+        let timestamp = Date().timeIntervalSince1970
+        return "\(start.prefix(10))-to-\(destination.prefix(10))-\(Int(timestamp))"
     }
+    
+    /// Update error message on main actor
+    private func updateError(_ message: String) async {
+        await MainActor.run {
+            self.activityError = message
+        }
+    }
+    
+    // MARK: - Public Convenience Methods
+    
+    /// Mark activity as completed (user arrived)
+    func markActivityCompleted(with message: String = "Journey completed") async -> Bool {
+        guard let activity = currentActivity else { return false }
+        
+        // Brief completion state before ending
+        let completedState = TransportationRecommendationWidgetAttributes.ContentState(
+            recommendation: activity.content.state.recommendation,
+            lastUpdated: Date()
+        )
+        
+        await activity.update(
+            ActivityContent(
+                state: completedState,
+                staleDate: Date().addingTimeInterval(30) // End after 30 seconds
+            )
+        )
+        
+        // End activity after brief delay to show completion
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            Task {
+                await self.endActivity(activity)
+            }
+        }
+        
+        return true
+    }
+    
+
     
     /// Clear any stored errors
     func clearError() {
@@ -172,130 +256,48 @@ class ActivityManager: ObservableObject {
     }
 }
 
-// MARK: - ActivityKit Attribute Definitions
-@available(iOS 16.1, *)
-struct TransportationActivityAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        let recommendation: Recommendation
-        let status: ActivityStatus
-        let lastUpdated: Date
-        let statusMessage: String?
-        
-        init(recommendation: Recommendation, status: ActivityStatus, lastUpdated: Date, statusMessage: String? = nil) {
-            self.recommendation = recommendation
-            self.status = status
-            self.lastUpdated = lastUpdated
-            self.statusMessage = statusMessage
-        }
+// MARK: - Fallback Implementation for iOS < 16.1
+
+/// No-operation Activity Manager for iOS versions that don't support Live Activities
+class NoOpActivityManager: ActivityManagerProtocol, @unchecked Sendable {
+    func startActivity(destinationName: String, startLocationName: String, recommendation: Recommendation) async -> Bool {
+        return false
     }
     
-    let destinationName: String
-    let startTime: Date
-}
-
-/// Activity status for Live Activity states
-enum ActivityStatus: String, Codable, CaseIterable {
-    case active = "active"
-    case completed = "completed"
-    case ended = "ended"
+    func updateActivity(with recommendation: Recommendation) async -> Bool {
+        return false
+    }
     
-    var displayText: String {
-        switch self {
-        case .active:
-            return "En route"
-        case .completed:
-            return "Arrived"
-        case .ended:
-            return "Ended"
-        }
+    func endAllActivities() async -> Bool {
+        return false
+    }
+    
+    func isActivitySupported() -> Bool {
+        return false
+    }
+    
+    func hasActiveActivities() -> Bool {
+        return false
+    }
+    
+    func markActivityCompleted() async -> Bool {
+        return false
+    }
+    
+    var canStartActivity: Bool {
+        return false
     }
 }
 
-// MARK: - Live Activity Views
-@available(iOS 16.1, *)
-struct TransportationActivityView: View {
-    let context: ActivityViewContext<TransportationActivityAttributes>
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: context.state.recommendation.transportationMode.iconName)
-                    .foregroundColor(Color(context.state.recommendation.transportationMode.colorName))
-                    .font(.title2)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("To \(context.attributes.destinationName)")
-                        .font(.headline)
-                        .lineLimit(1)
-                    
-                    Text(context.state.recommendation.reasoning)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing) {
-                    Text(context.state.recommendation.primaryETA)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    Text(context.state.status.displayText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            if let statusMessage = context.state.statusMessage {
-                Text(statusMessage)
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
-        }
-        .padding()
-    }
-}
+// MARK: - Activity Manager Factory
 
-// MARK: - Dynamic Island Expanded View
-@available(iOS 16.1, *)
-struct TransportationDynamicIslandExpandedView: View {
-    let context: ActivityViewContext<TransportationActivityAttributes>
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Image(systemName: context.state.recommendation.transportationMode.iconName)
-                    .foregroundColor(Color(context.state.recommendation.transportationMode.colorName))
-                    .font(.title)
-                
-                VStack(alignment: .leading) {
-                    Text(context.attributes.destinationName)
-                        .font(.headline)
-                    Text(context.state.recommendation.reasoning)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-                
-                Text(context.state.recommendation.primaryETA)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-            }
-            
-            HStack {
-                Text("Confidence: \(context.state.recommendation.confidencePercentage)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Text(context.state.status.displayText)
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            }
+/// Factory for creating appropriate Activity Manager based on iOS version
+class ActivityManagerFactory {
+    static func createActivityManager() -> ActivityManagerProtocol {
+        if #available(iOS 16.1, *) {
+            return LiveActivityManager.shared
+        } else {
+            return NoOpActivityManager()
         }
-        .padding()
     }
 }

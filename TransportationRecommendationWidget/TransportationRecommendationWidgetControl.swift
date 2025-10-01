@@ -16,15 +16,15 @@ struct TransportationRecommendationWidgetControl: ControlWidget {
             provider: Provider()
         ) { value in
             ControlWidgetToggle(
-                "Start Timer",
+                "Auto-Update Recommendations",
                 isOn: value,
-                action: StartTimerIntent()
-            ) { isRunning in
-                Label(isRunning ? "On" : "Off", systemImage: "timer")
+                action: ToggleRecommendationUpdatesIntent()
+            ) { isEnabled in
+                Label(isEnabled ? "Auto" : "Manual", systemImage: isEnabled ? "arrow.clockwise" : "pause.circle")
             }
         }
-        .displayName("Timer")
-        .description("A an example control that runs a timer.")
+        .displayName("Transportation Updates")
+        .description("Toggle automatic transportation recommendation updates.")
     }
 }
 
@@ -35,20 +35,20 @@ extension TransportationRecommendationWidgetControl {
         }
 
         func currentValue() async throws -> Bool {
-            let isRunning = true // Check if the timer is running
-            return isRunning
+            let isAutoUpdateEnabled = true // Check if auto-updates are enabled
+            return isAutoUpdateEnabled
         }
     }
 }
 
-struct StartTimerIntent: SetValueIntent {
-    static let title: LocalizedStringResource = "Start a timer"
+struct ToggleRecommendationUpdatesIntent: SetValueIntent {
+    static let title: LocalizedStringResource = "Toggle recommendation updates"
 
-    @Parameter(title: "Timer is running")
+    @Parameter(title: "Auto-updates enabled")
     var value: Bool
 
     func perform() async throws -> some IntentResult {
-        // Start / stop the timer based on `value`.
+        // Toggle automatic recommendation updates based on `value`.
         return .result()
     }
 }
