@@ -73,18 +73,18 @@
 - [x] T020 Integrate LocationService with permission handling in DecisionEngine.swift (update existing file)
 
 ## Phase 3.6: Live Activities Integration  
-- [ ] T021 Create ActivityKit data structures (Attributes & ContentState) in simpleDecision/Models/LiveActivityModels.swift
-- [ ] T022 Implement Widget Extension with Dynamic Island support in TransportationRecommendationWidget/Widget.swift
-- [ ] T023 [P] Create Live Activity UI views in TransportationRecommendationWidget/Views/ directory
-- [ ] T024 Update ActivityManager with official ActivityKit patterns in ActivityManager.swift (update existing file)
-- [ ] T025 Connect ActivityManager to ContentViewModel for automatic updates in ContentViewModel.swift (update existing file)
+- [x] T021 Create ActivityKit data structures (Attributes & ContentState) in simpleDecision/Models/LiveActivityModels.swift
+- [x] T022 Implement Widget Extension with Dynamic Island support in TransportationRecommendationWidget/Widget.swift
+- [x] T023 [P] Create Live Activity UI views in TransportationRecommendationWidget/Views/ directory
+- [x] T024 Update ActivityManager with official ActivityKit patterns in ActivityManager.swift (update existing file)
+- [x] T025 Connect ActivityManager to ContentViewModel for automatic updates in ContentViewModel.swift (update existing file)
 
 ## Phase 3.7: Polish & Validation
-- [ ] T026 Add input validation for location coordinates and API responses in DecisionEngine.swift (update existing file)
-- [ ] T027 [P] Implement error handling and user-friendly messages in ContentViewModel.swift (update existing file)
-- [ ] T028 [P] Add confidence scoring based on departure status in DecisionEngine.swift (update existing file)
-- [ ] T029 Add debug controls integration to main UI in ContentView.swift (update existing file)
-- [ ] T030 Validate <1 second app launch performance and optimize if needed in simpleDecisionApp.swift (update existing file)
+- [x] T026 Add input validation for location coordinates and API responses in DecisionEngine.swift (update existing file)
+- [x] T027 [P] Implement error handling and user-friendly messages in MainViewModel.swift (update existing file)
+- [x] T028 [P] Add confidence scoring based on departure status in DecisionEngine.swift (update existing file)
+- [x] T029 Add debug controls integration to main UI in ContentView.swift (update existing file)
+- [x] T030 Validate <1 second app launch performance and optimize if needed in simpleDecisionApp.swift (update existing file)
 
 ## Dependencies
 - Setup (T001-T003) before models (T004-T007)
