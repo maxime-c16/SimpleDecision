@@ -50,17 +50,24 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
     // MARK: - ActivityManagerProtocol Implementation
     
     func startActivity(destinationName: String, startLocationName: String, recommendation: Recommendation) async -> Bool {
+        print("🟡 ActivityManager: Attempting to start Live Activity")
+        print("🟡 Activities enabled: \(isActivitiesEnabled)")
+        print("🟡 Authorization info: \(ActivityAuthorizationInfo().areActivitiesEnabled)")
+        
         guard isActivitiesEnabled else {
             await updateError("Live Activities are not enabled by user")
+            print("🔴 Live Activities disabled by user")
             return false
         }
         
         // End any existing activity first
         await endAllActivities()
         
+        // Create session ID that includes destination info
+        let sessionId = "\(startLocationName)-to-\(destinationName)-\(Date().timeIntervalSince1970)"
+        
         let attributes = TransportationRecommendationWidgetAttributes(
-            destinationName: destinationName,
-            originName: startLocationName
+            sessionId: sessionId
         )
         
         let initialState = TransportationRecommendationWidgetAttributes.ContentState(
@@ -78,6 +85,9 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
                 )
             )
             
+            print("✅ Live Activity started successfully!")
+            print("✅ Activity ID: \(activity.id)")
+            
             await MainActor.run {
                 self.currentActivity = activity
                 self.activityError = nil
@@ -89,6 +99,7 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
             return true
             
         } catch {
+            print("🔴 Failed to start Live Activity: \(error)")
             await updateError("Failed to start Live Activity: \(error.localizedDescription)")
             return false
         }

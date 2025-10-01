@@ -52,6 +52,13 @@
 			);
 			target = 2D14BF5D2E8C317C00F8153A /* TransportationRecommendationWidgetExtension */;
 		};
+		2D14BFC92E8CACE900F8153A /* Exceptions for "TransportationRecommendationWidget" folder in "simpleDecision" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				SharedModels.swift,
+			);
+			target = 2D14BF292E8C1EC600F8153A /* simpleDecision */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -63,6 +70,7 @@
 		2D14BF642E8C317D00F8153A /* TransportationRecommendationWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				2D14BFC92E8CACE900F8153A /* Exceptions for "TransportationRecommendationWidget" folder in "simpleDecision" target */,
 				2D14BF732E8C317E00F8153A /* Exceptions for "TransportationRecommendationWidget" folder in "TransportationRecommendationWidgetExtension" target */,
 			);
 			path = TransportationRecommendationWidget;
