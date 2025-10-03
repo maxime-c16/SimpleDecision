@@ -405,21 +405,47 @@ class DecisionEngine: ObservableObject {
             return createWalkingRecommendation(distance: totalDistance, weather: weather)
         }
         
+        // Determine if it's daytime or nighttime
+        let hour = Calendar.current.component(.hour, from: Date())
+        let isDaytime = hour >= 6 && hour < 22  // 6 AM to 10 PM is daytime
+        
+        // Filter departures based on time of day
+        // During daytime (6 AM - 10 PM): exclude night buses (lines starting with "N")
+        // During nighttime (10 PM - 6 AM): include all buses
+        let filteredDepartures = primResponse.departures.filter { departure in
+            if isDaytime {
+                // Exclude night buses during daytime
+                return !departure.lineName.uppercased().hasPrefix("N")
+            } else {
+                // Include all buses during nighttime
+                return true
+            }
+        }
+        
+        guard !filteredDepartures.isEmpty else {
+            // No valid departures after filtering, fallback to walking
+            print("⚠️ No valid departures found after time-aware filtering")
+            return createWalkingRecommendation(distance: totalDistance, weather: weather)
+        }
+        
         // Calculate walk time to stop
         let walkingSpeed = settingsManager.settings.walkingSpeedMps
         let walkToStopMinutes = nearestStop.distance / walkingSpeed / 60
         let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60)
         
         // Find first catchable departure (with 1 minute buffer for boarding)
-        guard let nextDeparture = primResponse.departures.first(where: { departure in
+        guard let nextDeparture = filteredDepartures.first(where: { departure in
             departure.isUpcoming &&
             departure.minutesUntilDeparture >= 0 &&
             departure.minutesUntilDeparture < 120 &&
             arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
         }) else {
             // No catchable departures, fallback to walking
+            print("⚠️ No catchable departures found (all depart before user arrival)")
             return createWalkingRecommendation(distance: totalDistance, weather: weather)
         }
+        
+        print("✅ Selected transit: \(nextDeparture.lineName) to \(nextDeparture.destinationName) at \(nextDeparture.expectedDepartureTime)")
         
         // Calculate wait time (time between arrival at stop and bus departure)
         let waitTimeMinutes = nextDeparture.expectedDepartureTime.timeIntervalSince(arrivalTimeAtStop) / 60

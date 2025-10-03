@@ -190,7 +190,14 @@ class PRIMClient: ObservableObject {
                 print("⚠️ Navitia API error: \(error). Falling back to known working stops.")
                 
                 // Fallback to known good stops if Navitia fails
+                // Using real Île-de-France stops with verified PRIM API support
                 let fallbackStops = [
+                    TransitStop(
+                        id: "STIF:StopPoint:Q:46543",  // Cimetière de Vincennes - Line 51, 53, 56, N34
+                        name: "Cimetière de Vincennes",
+                        coordinate: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121),
+                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121))
+                    ),
                     TransitStop(
                         id: "STIF:StopPoint:Q:42016",  // Nation RER A/Metro - verified working
                         name: "Nation",
@@ -198,12 +205,18 @@ class PRIMClient: ObservableObject {
                         distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8485, longitude: 2.3956))
                     ),
                     TransitStop(
+                        id: "STIF:StopPoint:Q:47900",  // Val de Fontenay RER - high frequency
+                        name: "Val de Fontenay",
+                        coordinate: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4803),
+                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4803))
+                    ),
+                    TransitStop(
                         id: "STIF:StopPoint:Q:41446",  // Châtelet - verified working
                         name: "Châtelet",
                         coordinate: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472),
                         distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472))
                     )
-                ]
+                ].sorted { $0.distance < $1.distance }  // Sort by distance to user
                 
                 return Just(fallbackStops)
                     .setFailureType(to: Error.self)
