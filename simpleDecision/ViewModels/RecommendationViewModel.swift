@@ -43,9 +43,9 @@ class RecommendationViewModel: ObservableObject {
     @MainActor
     init(
         decisionEngine: DecisionEngine,
-        locationService: LocationService = LocationService(),
-        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager(),
-        settingsManager: AppSettingsManager = AppSettingsManager()
+        locationService: LocationService,
+        activityManager: ActivityManagerProtocol,
+        settingsManager: AppSettingsManager
     ) {
         self.decisionEngine = decisionEngine
         self.locationService = locationService
@@ -112,7 +112,7 @@ class RecommendationViewModel: ObservableObject {
             
         // Update Live Activity if active
         if #available(iOS 16.1, *), activityManager.hasActiveActivities() {
-            await activityManager.updateActivity(with: newRecommendation)
+            _ = await activityManager.updateActivity(with: newRecommendation)
         }        } catch {
             errorMessage = "Failed to refresh: \(error.localizedDescription)"
         }
@@ -298,16 +298,8 @@ class RecommendationViewModel: ObservableObject {
     }
     
     private func createWalkingAlternative(destination: Destination) -> Recommendation {
-        guard let currentLocation = locationService.currentLocation else {
-            // No location available - return a minimal walking recommendation
-            return Recommendation(
-                mode: .walk,
-                walkETA: nil,
-                busETA: nil,
-                confidence: 0.1,
-                timestamp: Date(),
-                source: .localHeuristics
-            )
+        guard locationService.currentLocation != nil else {
+            return Recommendation.mockWalk
         }
         
         let distance = locationService.distanceToDestination(destination.coordinate) ?? 1000

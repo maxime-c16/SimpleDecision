@@ -29,7 +29,7 @@ struct AddressSearchView: View {
                         .textFieldStyle(.plain)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
-                        .onChange(of: searchText) { newValue in
+                        .onChange(of: searchText) { _, newValue in
                             searchCompleter.search(query: newValue)
                         }
                     
@@ -120,7 +120,7 @@ struct AddressSearchView: View {
             
             let name = result.title
             let address = result.subtitle.isEmpty ? result.title : result.subtitle
-            let coordinate = mapItem.placemark.coordinate
+            let coordinate = mapItem.location.coordinate
             
             onAddressSelected(name, address, coordinate)
             presentationMode.wrappedValue.dismiss()

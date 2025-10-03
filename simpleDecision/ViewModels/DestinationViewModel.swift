@@ -208,7 +208,7 @@ class DestinationViewModel: ObservableObject {
             filteredDestinations.sort { $0.name < $1.name }
             
         case .distance:
-            guard let currentLocation = locationService.currentLocation else {
+            guard locationService.currentLocation != nil else {
                 // Fallback to alphabetical if no location
                 filteredDestinations.sort { $0.name < $1.name }
                 return

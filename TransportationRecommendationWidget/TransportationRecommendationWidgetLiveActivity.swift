@@ -101,6 +101,40 @@ struct RecommendationLockScreenView: View {
                         }
                         .foregroundColor(.secondary)
                     }
+                } else if let alternativeTransit = context.state.recommendation.alternativeTransitDetails {
+                    // Alternative transit when walking is recommended
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                            Text("Alternative:")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "bus.fill")
+                                .font(.caption2)
+                            Text(alternativeTransit.lineName)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                            Text(alternativeTransit.destinationName)
+                                .font(.caption2)
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.blue)
+                        
+                        HStack(spacing: 8) {
+                            Label("\(alternativeTransit.walkToStopMinutes)m walk", systemImage: "figure.walk")
+                                .font(.caption2)
+                            Label("\(alternativeTransit.minutesUntilDeparture)m wait", systemImage: "clock")
+                                .font(.caption2)
+                            if let busETA = context.state.recommendation.busETA {
+                                Label("\(busETA)m total", systemImage: "sum")
+                                    .font(.caption2)
+                            }
+                        }
+                        .foregroundColor(.secondary)
+                    }
                 } else {
                     // ETAs for walk/tie
                     HStack(spacing: 12) {
@@ -193,6 +227,19 @@ struct RecommendationDetailView: View {
                             .lineLimit(1)
                     }
                     .foregroundColor(.blue)
+                } else if let alternativeTransit = context.state.recommendation.alternativeTransitDetails {
+                    // Show alternative transit when walking
+                    HStack(spacing: 4) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 8))
+                        Text("Alt:")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text(alternativeTransit.lineName)
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
                 } else if context.state.recommendation.walkETA != nil && context.state.recommendation.busETA != nil {
                     HStack(spacing: 8) {
                         if let walkETA = context.state.recommendation.walkETA {

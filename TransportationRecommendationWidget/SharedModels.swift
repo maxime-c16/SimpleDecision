@@ -32,32 +32,125 @@ public struct TransportationRecommendationWidgetAttributes: ActivityAttributes {
 
 // MARK: - Shared Models for Widget Extension
 
-/// Transit-specific details for bus/train recommendations
+/// Detailed ETA breakdown for transit recommendations
+public struct TransitETABreakdown: Codable, Equatable, Hashable {
+    public let walkToStopMinutes: Int
+    public let waitForBusMinutes: Int
+    public let busRideMinutes: Int
+    public let totalMinutes: Int
+    
+    public init(walkToStopMinutes: Int, waitForBusMinutes: Int, busRideMinutes: Int) {
+        self.walkToStopMinutes = walkToStopMinutes
+        self.waitForBusMinutes = waitForBusMinutes
+        self.busRideMinutes = busRideMinutes
+        self.totalMinutes = walkToStopMinutes + waitForBusMinutes + busRideMinutes
+    }
+    
+    public var description: String {
+        return "\(walkToStopMinutes)min walk + \(waitForBusMinutes)min wait + \(busRideMinutes)min ride = \(totalMinutes)min total"
+    }
+}
+
+/// Alternative line information at the same stop
+public struct AlternativeLine: Codable, Equatable, Hashable, Identifiable {
+    public let id: String
+    public let lineNumber: String
+    public let lineRef: String
+    public let destination: String
+    public let nextDepartureTime: Date
+    public let departureStatus: String
+    public let isCatchable: Bool  // Can user walk to stop in time to catch this bus?
+    
+    public init(id: String, lineNumber: String, lineRef: String, destination: String, nextDepartureTime: Date, departureStatus: String, isCatchable: Bool = true) {
+        self.id = id
+        self.lineNumber = lineNumber
+        self.lineRef = lineRef
+        self.destination = destination
+        self.nextDepartureTime = nextDepartureTime
+        self.departureStatus = departureStatus
+        self.isCatchable = isCatchable
+    }
+    
+    public var minutesUntilDeparture: Int {
+        let interval = nextDepartureTime.timeIntervalSinceNow
+        return max(0, Int(interval / 60))
+    }
+}
+
+/// Bus departure schedule information from PRIM API
+public struct BusDeparture: Codable, Equatable, Hashable, Identifiable {
+    public let id: String
+    public let departureTime: Date
+    public let status: String
+    public let minutesUntilDeparture: Int
+    public let isCatchable: Bool
+    
+    public init(id: String, departureTime: Date, status: String, minutesUntilDeparture: Int, isCatchable: Bool) {
+        self.id = id
+        self.departureTime = departureTime
+        self.status = status
+        self.minutesUntilDeparture = minutesUntilDeparture
+        self.isCatchable = isCatchable
+    }
+    
+    public var displayTime: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: departureTime)
+    }
+}
+
+/// Transit-specific details for bus/train recommendations (based on actual PRIM API structure)
+
 public struct TransitDetails: Codable, Equatable, Hashable {
-    public let lineName: String              // e.g., "RER A", "Bus 122"
-    public let destinationName: String       // e.g., "Saint-Germain-en-Laye"
-    public let stopName: String              // Name of the transit stop
-    public let departureTime: Date           // Expected departure time
-    public let departureStatus: String       // "onTime", "delayed", "early"
-    public let platformName: String          // Platform or stop designation
-    public let walkToStopMinutes: Int        // Walking time to reach the stop
+    public let lineName: String
+    public let lineRef: String?
+    public let destinationName: String
+    public let stopName: String
+    public let departureTime: Date
+    public let departureStatus: String
+    public let platformName: String
+    public let walkToStopMinutes: Int
+    public let operatorRef: String?
+    public let direction: String?
+    public let vehicleAtStop: Bool
+    public let etaBreakdown: TransitETABreakdown?
+    public let alternativeLines: [AlternativeLine]
+    public let stopId: String?
+    public let upcomingDepartures: [BusDeparture]  // Full schedule for the recommended line
     
     public init(
         lineName: String,
+        lineRef: String? = nil,
         destinationName: String,
         stopName: String,
         departureTime: Date,
         departureStatus: String,
         platformName: String,
-        walkToStopMinutes: Int
+        walkToStopMinutes: Int,
+        operatorRef: String? = nil,
+        direction: String? = nil,
+        vehicleAtStop: Bool = false,
+        etaBreakdown: TransitETABreakdown? = nil,
+        alternativeLines: [AlternativeLine] = [],
+        stopId: String? = nil,
+        upcomingDepartures: [BusDeparture] = []
     ) {
         self.lineName = lineName
+        self.lineRef = lineRef
         self.destinationName = destinationName
         self.stopName = stopName
         self.departureTime = departureTime
         self.departureStatus = departureStatus
         self.platformName = platformName
         self.walkToStopMinutes = walkToStopMinutes
+        self.operatorRef = operatorRef
+        self.direction = direction
+        self.vehicleAtStop = vehicleAtStop
+        self.etaBreakdown = etaBreakdown
+        self.alternativeLines = alternativeLines
+        self.stopId = stopId
+        self.upcomingDepartures = upcomingDepartures
     }
     
     /// Minutes until departure
@@ -72,8 +165,29 @@ public struct TransitDetails: Codable, Equatable, Hashable {
         case "ontime": return "green"
         case "delayed": return "orange"
         case "early": return "blue"
+        case "cancelled": return "red"
         default: return "gray"
         }
+    }
+    
+    /// Status display text
+    public var statusText: String {
+        switch departureStatus.lowercased() {
+        case "ontime": return vehicleAtStop ? "At Stop" : "On Time"
+        case "delayed": return "Delayed"
+        case "early": return "Early"
+        case "cancelled": return "Cancelled"
+        default: return departureStatus
+        }
+    }
+    
+    /// Operator name from reference (simplified mapping)
+    public var operatorName: String? {
+        guard let ref = operatorRef else { return nil }
+        // Extract operator code from format like "MeC_Bus_PC:Operator::100:"
+        if ref.contains("100") { return "RATP" }
+        if ref.contains("200") { return "SNCF" }
+        return nil
     }
 }
 
@@ -90,8 +204,11 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
     // Transit-specific details (when mode is .bus)
     public let transitDetails: TransitDetails?
     
+    // Alternative option info (e.g., bus info when walking is recommended)
+    public let alternativeTransitDetails: TransitDetails?
+    
     enum CodingKeys: String, CodingKey {
-        case mode, walkETA, busETA, confidence, timestamp, source, transitDetails
+        case mode, walkETA, busETA, confidence, timestamp, source, transitDetails, alternativeTransitDetails
     }
     
     public init(
@@ -101,7 +218,8 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         confidence: Double,
         timestamp: Date,
         source: RecommendationSource,
-        transitDetails: TransitDetails? = nil
+        transitDetails: TransitDetails? = nil,
+        alternativeTransitDetails: TransitDetails? = nil
     ) {
         self.id = UUID()
         self.mode = mode
@@ -111,6 +229,7 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.timestamp = timestamp
         self.source = source
         self.transitDetails = transitDetails
+        self.alternativeTransitDetails = alternativeTransitDetails
     }
     
     public init(from decoder: Decoder) throws {
@@ -123,6 +242,7 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.timestamp = try container.decode(Date.self, forKey: .timestamp)
         self.source = try container.decode(RecommendationSource.self, forKey: .source)
         self.transitDetails = try container.decodeIfPresent(TransitDetails.self, forKey: .transitDetails)
+        self.alternativeTransitDetails = try container.decodeIfPresent(TransitDetails.self, forKey: .alternativeTransitDetails)
     }
     
     /// Primary ETA based on recommended mode
@@ -161,13 +281,19 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         timestamp: Date(),
         source: .mock,
         transitDetails: TransitDetails(
-            lineName: "Bus 122",
-            destinationName: "Gare du Nord",
-            stopName: "Place de la République",
+            lineName: "N34",
+            destinationName: "Gare de Lyon",
+            stopName: "Cimetière de Vincennes",
             departureTime: Date().addingTimeInterval(300), // 5 min from now
             departureStatus: "onTime",
             platformName: "Quai A",
-            walkToStopMinutes: 3
+            walkToStopMinutes: 3,
+            upcomingDepartures: [
+                BusDeparture(id: "1", departureTime: Date().addingTimeInterval(300), status: "onTime", minutesUntilDeparture: 5, isCatchable: true),
+                BusDeparture(id: "2", departureTime: Date().addingTimeInterval(900), status: "onTime", minutesUntilDeparture: 15, isCatchable: true),
+                BusDeparture(id: "3", departureTime: Date().addingTimeInterval(1500), status: "onTime", minutesUntilDeparture: 25, isCatchable: true),
+                BusDeparture(id: "4", departureTime: Date().addingTimeInterval(2100), status: "onTime", minutesUntilDeparture: 35, isCatchable: true)
+            ]
         )
     )
     

@@ -39,10 +39,10 @@ class MainViewModel: ObservableObject {
     // MARK: - Initialization
     @MainActor
     init(
-        locationService: LocationService = LocationService(),
-        settingsManager: AppSettingsManager = AppSettingsManager(),
-        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager(),
-        backgroundScheduler: BackgroundScheduler = BackgroundScheduler.shared
+        locationService: LocationService,
+        settingsManager: AppSettingsManager,
+        activityManager: ActivityManagerProtocol,
+        backgroundScheduler: BackgroundScheduler
     ) {
         self.locationService = locationService
         self.settingsManager = settingsManager
@@ -184,7 +184,7 @@ class MainViewModel: ObservableObject {
             if activityManager.isActivitySupported() {
                 if activityManager.hasActiveActivities() {
                     // Update existing activity
-                    await activityManager.updateActivity(with: recommendation)
+                    _ = await activityManager.updateActivity(with: recommendation)
                 } else {
                     // Start new activity
                     let destinationName = destination.name
@@ -368,7 +368,7 @@ class MainViewModel: ObservableObject {
     
     /// End Live Activity manually
     func endLiveActivity() async {
-        await activityManager.endAllActivities()
+        _ = await activityManager.endAllActivities()
     }
     
     /// Check if Live Activities are supported

@@ -9,7 +9,7 @@ import SwiftUI
 import CoreLocation
 
 struct ContentView: View {
-    @StateObject private var mainViewModel = MainViewModel()
+    @StateObject private var mainViewModel: MainViewModel
     @StateObject private var destinationViewModel: DestinationViewModel
     @StateObject private var settingsViewModel: SettingsViewModel
     @State private var showingFullDebugControls = false
@@ -17,6 +17,15 @@ struct ContentView: View {
     init() {
         let locationService = LocationService()
         let settingsManager = AppSettingsManager()
+        let backgroundScheduler = BackgroundScheduler.shared
+        let activityManager = ActivityManagerFactory.createActivityManager()
+        
+        _mainViewModel = StateObject(wrappedValue: MainViewModel(
+            locationService: locationService,
+            settingsManager: settingsManager,
+            activityManager: activityManager,
+            backgroundScheduler: backgroundScheduler
+        ))
         
         _destinationViewModel = StateObject(wrappedValue: DestinationViewModel(
             locationService: locationService,
@@ -26,8 +35,8 @@ struct ContentView: View {
         _settingsViewModel = StateObject(wrappedValue: SettingsViewModel(
             settingsManager: settingsManager,
             locationService: locationService,
-            backgroundScheduler: BackgroundScheduler.shared,
-            activityManager: ActivityManagerFactory.createActivityManager()
+            backgroundScheduler: backgroundScheduler,
+            activityManager: activityManager
         ))
     }
     
@@ -575,6 +584,39 @@ struct SettingsView: View {
                         Text(viewModel.activityStatusText)
                             .foregroundColor(viewModel.activityStatusColor)
                     }
+                }
+                
+                Section(header: Text("PRIM API Configuration")) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("API Key")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        TextField("Enter your PRIM API key", text: $viewModel.primAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                        
+                        if viewModel.primAPIKey.isEmpty {
+                            Text("Using default development key")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        } else {
+                            Text("✓ Custom key configured")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                        }
+                    }
+                    
+                    Button("Save API Key") {
+                        viewModel.savePRIMAPIKey()
+                    }
+                    .disabled(viewModel.primAPIKey.isEmpty)
+                    
+                    Button("Clear API Key") {
+                        viewModel.clearPRIMAPIKey()
+                    }
+                    .foregroundColor(.red)
                 }
                 
                 Section("Walking Preferences") {

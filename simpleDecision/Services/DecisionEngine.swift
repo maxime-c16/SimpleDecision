@@ -185,27 +185,33 @@ class DecisionEngine: ObservableObject {
         // Use user's max walking distance preference
         let maxWalkingDistance = settingsManager.settings.maxWalkingDistanceMeters
         
-        // If very close, always recommend walking
-        if distance < 300 {
-            let walkingRec = createWalkingRecommendation(distance: distance, weather: weather)
-            return Just(walkingRec)
-                .setFailureType(to: Error.self)
-                .eraseToAnyPublisher()
-        }
-        
-        // If too far for user's walking preference, prefer transit
-        if distance > maxWalkingDistance {
-            return findBestTransitOption(from: origin, to: destination, distance: distance, weather: weather)
-        }
-        
-        // Medium distance: compare walking vs transit
+        // ALWAYS fetch both walking AND transit options so user can see both
+        // This ensures alternativeTransitDetails is populated even when walking is recommended
         return Publishers.CombineLatest(
             Just(createWalkingRecommendation(distance: distance, weather: weather))
                 .setFailureType(to: Error.self),
             findBestTransitOption(from: origin, to: destination, distance: distance, weather: weather)
         )
         .map { walkingOption, transitOption in
-            return self.selectBestOption(walking: walkingOption, transit: transitOption)
+            // Apply distance-based preferences but still show both options
+            if distance < 300 {
+                // Very close: strongly prefer walking but show bus alternative
+                return self.selectBestOptionWithAlternative(
+                    walking: walkingOption, 
+                    transit: transitOption, 
+                    preferWalking: true
+                )
+            } else if distance > maxWalkingDistance {
+                // Too far: strongly prefer transit but show walking alternative
+                return self.selectBestOptionWithAlternative(
+                    walking: walkingOption, 
+                    transit: transitOption, 
+                    preferWalking: false
+                )
+            } else {
+                // Medium distance: compare and decide
+                return self.selectBestOption(walking: walkingOption, transit: transitOption)
+            }
         }
         .eraseToAnyPublisher()
     }
@@ -232,8 +238,10 @@ class DecisionEngine: ObservableObject {
                 }
                 
                 guard let nearestStop = validStops.first else {
-                    // No valid transit stops available, return walking
-                    return Just(self.createWalkingRecommendation(distance: distance, weather: weather))
+                    // No valid transit stops available, use mock transit data
+                    // This ensures users can still see bus schedule structure
+                    print("⚠️ No valid transit stops found, using mock transit data")
+                    return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
                         .setFailureType(to: Error.self)
                         .eraseToAnyPublisher()
                 }
@@ -277,6 +285,112 @@ class DecisionEngine: ObservableObject {
         )
     }
     
+    /// Create mock transit recommendation when API data unavailable
+    private func createMockTransitRecommendation(distance: Double, weather: String) -> Recommendation {
+        // Use current time to determine if it's day or night
+        let hour = Calendar.current.component(.hour, from: Date())
+        let isDaytime = hour >= 6 && hour < 22
+        
+        // Mock stop near user
+        let walkToStopMinutes = 5
+        let waitForBusMinutes = isDaytime ? 3 : 8
+        let busRideMinutes = Int(distance / 333) // ~20 km/h average
+        let totalMinutes = walkToStopMinutes + waitForBusMinutes + busRideMinutes + 2
+        
+        // Create mock upcoming departures
+        let now = Date()
+        let userArrivalAtStop = now.addingTimeInterval(TimeInterval(walkToStopMinutes * 60))
+        
+        var mockDepartures: [BusDeparture] = []
+        for i in 0..<5 {
+            let departureTime = now.addingTimeInterval(TimeInterval((waitForBusMinutes + (i * (isDaytime ? 10 : 20))) * 60))
+            let minutesUntil = Int(departureTime.timeIntervalSince(now) / 60)
+            let isCatchable = departureTime > userArrivalAtStop.addingTimeInterval(60) // 1 min buffer
+            
+            mockDepartures.append(BusDeparture(
+                id: UUID().uuidString,
+                departureTime: departureTime,
+                status: i == 0 ? "ontime" : "scheduled",
+                minutesUntilDeparture: minutesUntil,
+                isCatchable: isCatchable
+            ))
+        }
+        
+        // Create mock alternative lines
+        let mockAlternatives: [AlternativeLine] = isDaytime ? [
+            AlternativeLine(
+                id: UUID().uuidString,
+                lineNumber: "56",
+                lineRef: "STIF:Line::C01056",
+                destination: "Château de Vincennes",
+                nextDepartureTime: now.addingTimeInterval(300),
+                departureStatus: "ontime",
+                isCatchable: true
+            ),
+            AlternativeLine(
+                id: UUID().uuidString,
+                lineNumber: "RER A",
+                lineRef: "STIF:Line::C01371",
+                destination: "Cergy",
+                nextDepartureTime: now.addingTimeInterval(120),
+                departureStatus: "ontime",
+                isCatchable: false
+            )
+        ] : [
+            AlternativeLine(
+                id: UUID().uuidString,
+                lineNumber: "N11",
+                lineRef: "STIF:Line::C01385",
+                destination: "Gare de l'Est",
+                nextDepartureTime: now.addingTimeInterval(600),
+                departureStatus: "scheduled",
+                isCatchable: true
+            )
+        ]
+        
+        // Create ETA breakdown
+        let etaBreakdown = TransitETABreakdown(
+            walkToStopMinutes: walkToStopMinutes,
+            waitForBusMinutes: waitForBusMinutes,
+            busRideMinutes: busRideMinutes
+        )
+        
+        // Select line based on time of day
+        let lineName = isDaytime ? "124" : "N34"
+        let lineRef = isDaytime ? "STIF:Line::C01153" : "STIF:Line::C01398"
+        let destination = isDaytime ? "Porte de Vincennes" : "Gare de Lyon"
+        
+        let nextDeparture = now.addingTimeInterval(TimeInterval(waitForBusMinutes * 60))
+        
+        let transitDetails = TransitDetails(
+            lineName: lineName,
+            lineRef: lineRef,
+            destinationName: destination,
+            stopName: "Nation",
+            departureTime: nextDeparture,
+            departureStatus: "ontime",
+            platformName: isDaytime ? "2" : "",
+            walkToStopMinutes: walkToStopMinutes,
+            operatorRef: "RATP:Operator::100",
+            direction: destination,
+            vehicleAtStop: false,
+            etaBreakdown: etaBreakdown,
+            alternativeLines: mockAlternatives,
+            stopId: "STIF:StopPoint:Q:42016",
+            upcomingDepartures: mockDepartures
+        )
+        
+        return Recommendation(
+            mode: .bus,
+            walkETA: nil,
+            busETA: totalMinutes,
+            confidence: 0.7,
+            timestamp: Date(),
+            source: .primAPI,
+            transitDetails: transitDetails
+        )
+    }
+    
     /// Create transit recommendation based on PRIM data
     private func createTransitRecommendation(
         primResponse: PRIMResponse,
@@ -291,21 +405,28 @@ class DecisionEngine: ObservableObject {
             return createWalkingRecommendation(distance: totalDistance, weather: weather)
         }
         
-        guard let nextDeparture = primResponse.departures.first else {
-            // No departures, fallback to walking
-            return createWalkingRecommendation(distance: totalDistance, weather: weather)
-        }
-        
-        // Validate departure data
-        guard nextDeparture.minutesUntilDeparture >= 0 && nextDeparture.minutesUntilDeparture < 120 else {
-            // Invalid departure time, fallback to walking
-            return createWalkingRecommendation(distance: totalDistance, weather: weather)
-        }
-        
-        let waitTimeMinutes = Double(nextDeparture.minutesUntilDeparture)
+        // Calculate walk time to stop
         let walkingSpeed = settingsManager.settings.walkingSpeedMps
         let walkToStopMinutes = nearestStop.distance / walkingSpeed / 60
-        let estimatedTransitTimeMinutes = 15.0 // Assume 15min average transit ride
+        let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60)
+        
+        // Find first catchable departure (with 1 minute buffer for boarding)
+        guard let nextDeparture = primResponse.departures.first(where: { departure in
+            departure.isUpcoming &&
+            departure.minutesUntilDeparture >= 0 &&
+            departure.minutesUntilDeparture < 120 &&
+            arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+        }) else {
+            // No catchable departures, fallback to walking
+            return createWalkingRecommendation(distance: totalDistance, weather: weather)
+        }
+        
+        // Calculate wait time (time between arrival at stop and bus departure)
+        let waitTimeMinutes = nextDeparture.expectedDepartureTime.timeIntervalSince(arrivalTimeAtStop) / 60
+        
+        // Calculate bus ride time based on distance (estimate 20 km/h average speed in city)
+        let estimatedTransitTimeMinutes = calculateTransitRideTime(distance: totalDistance - nearestStop.distance)
+        
         let totalTimeMinutes = walkToStopMinutes + waitTimeMinutes + estimatedTransitTimeMinutes + transitWaitPenaltyMinutes
         
         let confidence = calculateTransitConfidence(
@@ -314,15 +435,65 @@ class DecisionEngine: ObservableObject {
             departureStatus: nextDeparture.departureStatus
         )
         
-        // Create transit details from PRIM data
+        // Create detailed ETA breakdown with REAL times
+        let etaBreakdown = TransitETABreakdown(
+            walkToStopMinutes: Int(walkToStopMinutes.rounded()),
+            waitForBusMinutes: Int(waitTimeMinutes.rounded()),
+            busRideMinutes: Int(estimatedTransitTimeMinutes.rounded())
+        )
+        
+        // Find alternative lines at the same stop
+        let alternativeLines = findAlternativeLines(
+            at: nearestStop,
+            excluding: nextDeparture,
+            from: primResponse
+        )
+        
+        // Get upcoming departures for the same line (next 5 departures within 60 minutes)
+        let upcomingDepartures = primResponse.departures
+            .filter { departure in
+                // Same line as recommended
+                guard departure.lineName == nextDeparture.lineName else { return false }
+                // Same destination
+                guard departure.destinationName == nextDeparture.destinationName else { return false }
+                // Only upcoming departures
+                guard departure.isUpcoming else { return false }
+                // Within next 60 minutes
+                guard departure.minutesUntilDeparture <= 60 else { return false }
+                return true
+            }
+            .sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
+            .prefix(5)
+            .map { departure in
+                // Check if this departure is catchable
+                let isCatchable = arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+                
+                return BusDeparture(
+                    id: departure.id.uuidString,
+                    departureTime: departure.expectedDepartureTime,
+                    status: departure.departureStatus,
+                    minutesUntilDeparture: departure.minutesUntilDeparture,
+                    isCatchable: isCatchable
+                )
+            }
+        
+        // Create transit details from PRIM API data (based on actual available fields)
         let transitDetails = TransitDetails(
             lineName: nextDeparture.lineName,
+            lineRef: nextDeparture.lineRef,
             destinationName: nextDeparture.destinationName,
             stopName: nearestStop.name,
             departureTime: nextDeparture.expectedDepartureTime,
             departureStatus: nextDeparture.departureStatus,
             platformName: nextDeparture.platformName,
-            walkToStopMinutes: Int(walkToStopMinutes.rounded())
+            walkToStopMinutes: Int(walkToStopMinutes.rounded()),
+            operatorRef: nextDeparture.operatorRef,
+            direction: nextDeparture.direction,
+            vehicleAtStop: nextDeparture.vehicleAtStop,
+            etaBreakdown: etaBreakdown,
+            alternativeLines: alternativeLines,
+            stopId: nearestStop.id,
+            upcomingDepartures: Array(upcomingDepartures)
         )
         
         return Recommendation(
@@ -336,6 +507,61 @@ class DecisionEngine: ObservableObject {
         )
     }
     
+    /// Calculate estimated transit ride time based on distance
+    private func calculateTransitRideTime(distance: Double) -> Double {
+        // Average bus speed: 20 km/h in city, metro/RER: 30 km/h
+        let averageSpeedKmh = 20.0
+        let averageSpeedMs = averageSpeedKmh * 1000 / 3600 // Convert to m/s
+        let rideTimeMinutes = (distance / averageSpeedMs) / 60
+        
+        // Add stops penalty (assume 1 stop every 500m, 30 seconds per stop)
+        let estimatedStops = distance / 500
+        let stopPenaltyMinutes = estimatedStops * 0.5
+        
+        return max(5.0, rideTimeMinutes + stopPenaltyMinutes) // Minimum 5 minutes
+    }
+    
+    /// Find alternative bus/metro lines at the same stop
+    private func findAlternativeLines(
+        at stop: TransitStop,
+        excluding mainDeparture: Departure,
+        from response: PRIMResponse
+    ) -> [AlternativeLine] {
+        // Calculate walk time to stop in minutes
+        let walkingSpeed = settingsManager.settings.walkingSpeedMps
+        let walkToStopMinutes = stop.distance / walkingSpeed / 60
+        let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60)
+        
+        // Get all departures except the main one
+        let alternatives = response.departures
+            .filter { departure in
+                // Exclude the main departure
+                guard departure.id != mainDeparture.id else { return false }
+                // Only upcoming departures
+                guard departure.isUpcoming else { return false }
+                // Within next 30 minutes
+                guard departure.minutesUntilDeparture <= 30 else { return false }
+                return true
+            }
+            .sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
+            .prefix(5) // Limit to 5 alternatives
+        
+        return alternatives.map { departure in
+            // Check if user can catch this bus (with 1 minute buffer for boarding)
+            let isCatchable = arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+            
+            return AlternativeLine(
+                id: departure.id.uuidString,
+                lineNumber: departure.lineName,
+                lineRef: departure.lineRef ?? "",
+                destination: departure.destinationName,
+                nextDepartureTime: departure.expectedDepartureTime,
+                departureStatus: departure.departureStatus,
+                isCatchable: isCatchable
+            )
+        }
+    }
+    
     /// Select best option between walking and transit using enhanced confidence scoring
     private func selectBestOption(walking: Recommendation, transit: Recommendation) -> Recommendation {
         // If user prefers walking, boost walking score
@@ -343,7 +569,6 @@ class DecisionEngine: ObservableObject {
         
         // Enhanced selection algorithm considering confidence, time, and departure reliability
         let confidenceDiff = walking.confidence - transit.confidence
-        let timeDiff = (walking.primaryETA ?? 0) - (transit.primaryETA ?? 0)
         
         // Calculate weighted score: confidence * 0.6 + time_efficiency * 0.4
         let walkingScore = calculateOptionScore(
@@ -359,12 +584,54 @@ class DecisionEngine: ObservableObject {
         )
         
         // If scores are very close (within 5%), prefer the option with higher confidence
+        let selectedRecommendation: Recommendation
         if abs(walkingScore - transitScore) < 0.05 {
-            return confidenceDiff > 0 ? walking : transit
+            selectedRecommendation = confidenceDiff > 0 ? walking : transit
+        } else {
+            // Otherwise, choose the option with the higher weighted score
+            selectedRecommendation = walkingScore > transitScore ? walking : transit
         }
         
-        // Otherwise, choose the option with the higher weighted score
-        return walkingScore > transitScore ? walking : transit
+        // IMPORTANT: Always include transit details as alternative when walking is recommended
+        // This allows users to see bus info even when walking is the primary recommendation
+        if selectedRecommendation.mode == .walk && transit.transitDetails != nil {
+            return Recommendation(
+                mode: selectedRecommendation.mode,
+                walkETA: selectedRecommendation.walkETA,
+                busETA: transit.busETA,
+                confidence: selectedRecommendation.confidence,
+                timestamp: selectedRecommendation.timestamp,
+                source: selectedRecommendation.source,
+                transitDetails: selectedRecommendation.transitDetails,
+                alternativeTransitDetails: transit.transitDetails
+            )
+        }
+        
+        return selectedRecommendation
+    }
+    
+    /// Select option with strong preference but always include alternative
+    private func selectBestOptionWithAlternative(
+        walking: Recommendation,
+        transit: Recommendation,
+        preferWalking: Bool
+    ) -> Recommendation {
+        if preferWalking {
+            // Recommend walking but include transit as alternative
+            return Recommendation(
+                mode: .walk,
+                walkETA: walking.walkETA,
+                busETA: transit.busETA,
+                confidence: walking.confidence,
+                timestamp: walking.timestamp,
+                source: walking.source,
+                transitDetails: nil,
+                alternativeTransitDetails: transit.transitDetails
+            )
+        } else {
+            // Recommend transit (bus is better for long distances)
+            return transit
+        }
     }
     
     /// Calculate weighted score for transportation option

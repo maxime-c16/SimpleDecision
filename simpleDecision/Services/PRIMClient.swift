@@ -48,10 +48,13 @@ class PRIMClient: ObservableObject {
                 .eraseToAnyPublisher()
         }
         
+        // Clean stop code - remove trailing colons that PRIM API doesn't accept
+        let cleanStopCode = stopCode.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+        
         var components = URLComponents(string: baseURL)!
         components.queryItems = [
-            URLQueryItem(name: "MonitoringRef", value: stopCode),
-            URLQueryItem(name: "LineRef", value: ""), // All lines
+            URLQueryItem(name: "MonitoringRef", value: cleanStopCode),
+            // Don't send empty LineRef - causes API rejection
             URLQueryItem(name: "apikey", value: apiKey)
         ]
         
@@ -64,13 +67,37 @@ class PRIMClient: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 10.0
         
+        print("🚌 PRIM API Request: \(url.absoluteString)")
+        
         isLoading = true
         rateLimiter.recordRequest()
         
         return session.dataTaskPublisher(for: request)
-            .map(\.data)
-            .decode(type: PRIMResponse.self, decoder: JSONDecoder())
-            .retry(2) // Retry up to 2 times on failure
+            .tryMap { data, response -> Data in
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw PRIMError.networkError(NSError(domain: "Invalid response", code: -1))
+                }
+                
+                // Log response for debugging
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("🚌 PRIM API Response (\(httpResponse.statusCode)): \(responseString.prefix(200))...")
+                }
+                
+                guard httpResponse.statusCode == 200 else {
+                    throw PRIMError.networkError(NSError(domain: "HTTP \(httpResponse.statusCode)", code: httpResponse.statusCode))
+                }
+                
+                return data
+            }
+            .decode(type: SIRIResponse.self, decoder: JSONDecoder())
+            .map { siriResponse in
+                siriResponse.toPRIMResponse()
+            }
+            .flatMap { primResponse -> AnyPublisher<PRIMResponse, Error> in
+                // Enrich departures with published line names from requete-ligne endpoint
+                self.enrichWithPublishedNames(primResponse)
+            }
+            .retry(1) // Retry once on failure
             .handleEvents(
                 receiveCompletion: { [weak self] _ in
                     DispatchQueue.main.async {
@@ -99,35 +126,113 @@ class PRIMClient: ObservableObject {
             .eraseToAnyPublisher()
     }
     
-    /// Find nearby transit stops using location
+    /// Find nearby transit stops using Navitia API (real dynamic discovery)
     func findNearbyStops(coordinate: CLLocationCoordinate2D, radius: Double = 500) -> AnyPublisher<[TransitStop], Error> {
-        // For development, return mock nearby stops
-        // In production, this would call PRIM stops API
-        let mockStops = [
-            TransitStop(
-                id: "STOP_AREA:59:SA:A87",
-                name: "Châtelet - Les Halles",
-                coordinate: CLLocationCoordinate2D(latitude: 48.8606, longitude: 2.3472),
-                distance: 150
-            ),
-            TransitStop(
-                id: "STOP_AREA:59:SA:3688",
-                name: "Hôtel de Ville",
-                coordinate: CLLocationCoordinate2D(latitude: 48.8565, longitude: 2.3524),
-                distance: 280
-            ),
-            TransitStop(
-                id: "STOP_AREA:59:SA:1746",
-                name: "République",
-                coordinate: CLLocationCoordinate2D(latitude: 48.8676, longitude: 2.3632),
-                distance: 420
-            )
+        // Use Navitia places_nearby endpoint for real stop discovery
+        let navitiaBaseURL = "https://api.navitia.io/v1/coverage/fr-idf"
+        let lon = coordinate.longitude
+        let lat = coordinate.latitude
+        
+        var components = URLComponents(string: "\(navitiaBaseURL)/coords/\(lon);\(lat)/places_nearby")!
+        components.queryItems = [
+            URLQueryItem(name: "distance", value: String(Int(radius))),
+            URLQueryItem(name: "type[]", value: "stop_area"),
+            URLQueryItem(name: "type[]", value: "stop_point"),
+            URLQueryItem(name: "count", value: "10"),
+            URLQueryItem(name: "disable_geojson", value: "true")
         ]
         
-        return Just(mockStops)
-            .setFailureType(to: Error.self)
-            .delay(for: .milliseconds(500), scheduler: DispatchQueue.main) // Simulate network delay
+        guard let url = components.url else {
+            return Fail(error: PRIMError.invalidURL)
+                .eraseToAnyPublisher()
+        }
+        
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // Use API key for Navitia authentication
+        request.setValue(apiKey, forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 10.0
+        
+        return session.dataTaskPublisher(for: request)
+            .tryMap { data, response -> [TransitStop] in
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw PRIMError.networkError(NSError(domain: "Invalid response", code: -1))
+                }
+                
+                guard httpResponse.statusCode == 200 else {
+                    throw PRIMError.networkError(NSError(domain: "HTTP Error", code: httpResponse.statusCode))
+                }
+                
+                let decoder = JSONDecoder()
+                let navitiaResponse = try decoder.decode(NavitiaPlacesResponse.self, from: data)
+                
+                return navitiaResponse.places_nearby.compactMap { place -> TransitStop? in
+                    guard let coord = place.stop_area?.coord else {
+                        return nil
+                    }
+                    
+                    // Convert Navitia ID format to PRIM MonitoringRef format
+                    // Navitia uses "stop_area:xxx" format, PRIM uses "STIF:StopPoint:Q:xxx" format
+                    let primId = self.convertNavitiaIDToPRIM(place.id)
+                    
+                    return TransitStop(
+                        id: primId,
+                        name: place.name,
+                        coordinate: CLLocationCoordinate2D(
+                            latitude: Double(coord.lat) ?? coordinate.latitude,
+                            longitude: Double(coord.lon) ?? coordinate.longitude
+                        ),
+                        distance: Double(place.distance ?? 0)
+                    )
+                }
+            }
+            .catch { error -> AnyPublisher<[TransitStop], Error> in
+                print("⚠️ Navitia API error: \(error). Falling back to known working stops.")
+                
+                // Fallback to known good stops if Navitia fails
+                let fallbackStops = [
+                    TransitStop(
+                        id: "STIF:StopPoint:Q:42016",  // Nation RER A/Metro - verified working
+                        name: "Nation",
+                        coordinate: CLLocationCoordinate2D(latitude: 48.8485, longitude: 2.3956),
+                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8485, longitude: 2.3956))
+                    ),
+                    TransitStop(
+                        id: "STIF:StopPoint:Q:41446",  // Châtelet - verified working
+                        name: "Châtelet",
+                        coordinate: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472),
+                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472))
+                    )
+                ]
+                
+                return Just(fallbackStops)
+                    .setFailureType(to: Error.self)
+                    .eraseToAnyPublisher()
+            }
             .eraseToAnyPublisher()
+    }
+    
+    /// Convert Navitia stop ID to PRIM MonitoringRef format
+    private func convertNavitiaIDToPRIM(_ navitiaID: String) -> String {
+        // Navitia format: "stop_area:STIF:XXXXX" or "stop_point:STIF:XXXXX"
+        // PRIM format: "STIF:StopPoint:Q:XXXXX" (without trailing colon)
+        
+        // Extract the numeric/alphanumeric part after "STIF:"
+        let components = navitiaID.components(separatedBy: ":")
+        if components.count >= 3, components[1] == "STIF" {
+            let stopCode = components[2]
+            return "STIF:StopPoint:Q:\(stopCode)"
+        }
+        
+        // If already in correct format, return as-is
+        return navitiaID
+    }
+    
+    /// Calculate distance between two coordinates in meters
+    private func calculateDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
+        let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
+        return fromLocation.distance(from: toLocation)
     }
     
     /// Save API key to Keychain
@@ -140,6 +245,11 @@ class PRIMClient: ObservableObject {
         return KeychainHelper.shared.delete(key: "PRIM_API_KEY")
     }
     
+    /// Get current API key (stored or default)
+    func getAPIKey() -> String {
+        return apiKey
+    }
+    
     /// Clear any stored errors
     func clearError() {
         lastError = nil
@@ -147,37 +257,166 @@ class PRIMClient: ObservableObject {
     
     /// Generate mock PRIM response for offline/fallback usage
     private func mockPRIMResponse(for stopCode: String) -> PRIMResponse {
-        let departures = [
-            Departure(
-                lineName: "1",
-                destinationName: "Château de Vincennes",
-                expectedDepartureTime: Date().addingTimeInterval(3 * 60), // 3 minutes
-                departureStatus: "onTime",
-                platformName: "Quai 1",
-                direction: "Direction Château de Vincennes"
-            ),
-            Departure(
-                lineName: "4",
-                destinationName: "Porte de Clignancourt",
-                expectedDepartureTime: Date().addingTimeInterval(7 * 60), // 7 minutes
-                departureStatus: "onTime",
-                platformName: "Quai 2",
-                direction: "Direction Porte de Clignancourt"
-            ),
-            Departure(
-                lineName: "11",
-                destinationName: "Mairie des Lilas",
-                expectedDepartureTime: Date().addingTimeInterval(12 * 60), // 12 minutes
-                departureStatus: "delayed",
-                platformName: "Quai 3",
-                direction: "Direction Mairie des Lilas"
-            )
-        ]
+        // Get current hour to determine if it's day or night
+        let hour = Calendar.current.component(.hour, from: Date())
+        let isDaytime = hour >= 6 && hour < 22  // Daytime: 6 AM to 10 PM
+        
+        // Use realistic daytime data instead of night buses
+        let departures: [Departure]
+        
+        if isDaytime {
+            departures = [
+                Departure(
+                    lineName: "124",  // Bus 124 (C01153) - actual daytime bus
+                    lineRef: "STIF:Line::C01153:",
+                    destinationName: "Porte de Vincennes",
+                    destinationRef: "STIF:StopPoint:Q:421412:",
+                    expectedDepartureTime: Date().addingTimeInterval(3 * 60), // 3 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation",
+                    direction: "Direction Porte de Vincennes",
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                ),
+                Departure(
+                    lineName: "A",  // RER A from real API (C01371) - major daytime line
+                    lineRef: "STIF:Line::C01371:",
+                    destinationName: "Cergy-Le-Haut",
+                    destinationRef: nil,
+                    expectedDepartureTime: Date().addingTimeInterval(5 * 60), // 5 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation RER A",
+                    direction: "Direction Cergy",
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                ),
+                Departure(
+                    lineName: "122",  // Bus 122 - actual daytime bus
+                    lineRef: "STIF:Line::C01152:",
+                    destinationName: "Gare de Lyon",
+                    destinationRef: nil,
+                    expectedDepartureTime: Date().addingTimeInterval(8 * 60), // 8 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation",
+                    direction: "Direction Gare de Lyon",
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                ),
+                Departure(
+                    lineName: "1",  // Metro 1 - major daytime metro line
+                    lineRef: "STIF:Line::C01371:",
+                    destinationName: "La Défense",
+                    destinationRef: nil,
+                    expectedDepartureTime: Date().addingTimeInterval(12 * 60), // 12 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation Métro",
+                    direction: "Direction La Défense",
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                )
+            ]
+        } else {
+            // Night buses for actual nighttime hours
+            departures = [
+                Departure(
+                    lineName: "N34",  // N34 Night bus (C01398)
+                    lineRef: "STIF:Line::C01398:",
+                    destinationName: "Gare de Lyon",
+                    destinationRef: "STIF:StopPoint:Q:421409:",
+                    expectedDepartureTime: Date().addingTimeInterval(15 * 60), // 15 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation",
+                    direction: "Direction Gare de Lyon",
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                ),
+                Departure(
+                    lineName: "N11",  // N11 Night bus
+                    lineRef: "STIF:Line::C01385:",
+                    destinationName: "Gare de l'Est",
+                    destinationRef: nil,
+                    expectedDepartureTime: Date().addingTimeInterval(25 * 60), // 25 minutes
+                    departureStatus: "onTime",
+                    platformName: "Nation",
+                    direction: nil,
+                    vehicleJourneyRef: nil,
+                    operatorRef: "RATP:Operator::100:",
+                    vehicleAtStop: false
+                )
+            ]
+        }
         
         return PRIMResponse(
             departures: departures,
             responseTimestamp: Date()
         )
+    }
+    
+    /// Enrich PRIMResponse with published line names from requete-ligne endpoint
+    /// This is called after initial SIRI parsing to get accurate line names (e.g., "N34" for night buses)
+    private func enrichWithPublishedNames(_ response: PRIMResponse) -> AnyPublisher<PRIMResponse, Error> {
+        // Collect all unique line refs that need enrichment (filter out nil lineRefs)
+        let lineRefsToFetch = Set(response.departures.compactMap { $0.lineRef })
+        
+        if lineRefsToFetch.isEmpty {
+            return Just(response)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        // Fetch published names for all unique line refs in parallel
+        let publishers = lineRefsToFetch.map { lineRef -> AnyPublisher<(String, String?), Never> in
+            LineInfoService.shared.fetchPublishedLineName(for: lineRef)
+                .replaceError(with: nil)
+                .map { publishedName in (lineRef, publishedName) }
+                .eraseToAnyPublisher()
+        }
+        
+        return Publishers.MergeMany(publishers)
+            .collect()
+            .map { (fetchedNames: [(String, String?)]) -> PRIMResponse in
+                // Create a mapping of lineRef -> publishedName
+                var nameMap: [String: String?] = [:]
+                for (lineRef, publishedName) in fetchedNames {
+                    nameMap[lineRef] = publishedName
+                }
+                
+                // Update departures with published names where available
+                let enrichedDepartures = response.departures.map { departure -> Departure in
+                    guard let lineRef = departure.lineRef,
+                          let publishedName = nameMap[lineRef],
+                          let name = publishedName,
+                          !name.isEmpty else {
+                        return departure
+                    }
+                    
+                    return Departure(
+                        lineName: name,
+                        lineRef: departure.lineRef,
+                        destinationName: departure.destinationName,
+                        destinationRef: departure.destinationRef,
+                        expectedDepartureTime: departure.expectedDepartureTime,
+                        departureStatus: departure.departureStatus,
+                        platformName: departure.platformName,
+                        direction: departure.direction,
+                        vehicleJourneyRef: departure.vehicleJourneyRef,
+                        operatorRef: departure.operatorRef,
+                        vehicleAtStop: departure.vehicleAtStop
+                    )
+                }
+                
+                return PRIMResponse(
+                    departures: enrichedDepartures,
+                    responseTimestamp: response.responseTimestamp
+                )
+            }
+            .setFailureType(to: Error.self)
+            .eraseToAnyPublisher()
     }
 }
 
@@ -293,6 +532,7 @@ enum PRIMError: LocalizedError {
     case noData
     case apiKeyMissing
     case rateLimitExceeded
+    case networkError(Error)
     
     var errorDescription: String? {
         switch self {
@@ -306,6 +546,8 @@ enum PRIMError: LocalizedError {
             return "API key not configured"
         case .rateLimitExceeded:
             return "Too many requests - please wait"
+        case .networkError(let error):
+            return "Network error: \(error.localizedDescription)"
         }
     }
 }

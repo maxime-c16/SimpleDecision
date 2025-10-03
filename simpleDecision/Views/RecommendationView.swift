@@ -11,7 +11,6 @@ import SwiftUI
 struct RecommendationView: View {
     let recommendation: Recommendation
     @State private var showingDetails = false
-    @State private var pulseAnimation = false
     
     var body: some View {
         VStack(spacing: 16) {
@@ -31,11 +30,6 @@ struct RecommendationView: View {
         .background(cardBackground)
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-        .scaleEffect(pulseAnimation ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: pulseAnimation)
-        .onAppear {
-            startPulseAnimation()
-        }
     }
     
     // MARK: - View Components
@@ -90,6 +84,34 @@ struct RecommendationView: View {
                                 .foregroundColor(.blue)
                         }
                     }
+                } else if let alternativeTransit = recommendation.alternativeTransitDetails {
+                    // Show alternative transit option when walking is recommended
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "info.circle")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("Alternative:")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("Bus \(alternativeTransit.lineName)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            Label("\(recommendation.busETA ?? 0) min", systemImage: "bus")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Label("\(alternativeTransit.walkToStopMinutes) min walk", systemImage: "figure.walk")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
                 } else {
                     // Source info for non-transit
                     Text("Source: \(recommendation.source.displayName)")
@@ -215,27 +237,590 @@ struct RecommendationView: View {
                                     .font(.caption)
                             }
                             
-                            Text(transit.departureStatus.capitalized)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color(transit.statusColor).opacity(0.2))
-                                .foregroundColor(Color(transit.statusColor))
-                                .cornerRadius(6)
+                            // Status badge
+                            HStack(spacing: 4) {
+                                Text(transit.statusText)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(transit.statusColor).opacity(0.2))
+                            .foregroundColor(Color(transit.statusColor))
+                            .cornerRadius(6)
                         }
                         
-                        if !transit.platformName.isEmpty {
+                        // Platform and additional info
+                        HStack(spacing: 12) {
+                            if !transit.platformName.isEmpty {
+                                HStack {
+                                    Image(systemName: "arrow.turn.up.right")
+                                        .foregroundColor(.secondary)
+                                    Text("Platform: \(transit.platformName)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            // Operator badge
+                            if let operatorName = transit.operatorName, !operatorName.isEmpty {
+                                Text(operatorName)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(4)
+                            }
+                        }
+                        
+                        // Full direction if different from destination
+                        if let direction = transit.direction, direction != transit.destinationName {
                             HStack {
-                                Image(systemName: "arrow.turn.up.right")
+                                Image(systemName: "signpost.right.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                Text(direction)
+                                    .font(.caption2)
                                     .foregroundColor(.secondary)
-                                Text("Platform: \(transit.platformName)")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
                             }
                         }
                     }
                     
                     Divider()
+                    
+                    // Detailed ETA Breakdown
+                    if let etaBreakdown = transit.etaBreakdown {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Detailed Journey Time")
+                                .font(.headline)
+                                .padding(.top, 4)
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Image(systemName: "figure.walk")
+                                        .frame(width: 20)
+                                        .foregroundColor(.orange)
+                                    Text("Walk to stop:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.walkToStopMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                HStack {
+                                    Image(systemName: "clock.fill")
+                                        .frame(width: 20)
+                                        .foregroundColor(.blue)
+                                    Text("Wait for bus:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.waitForBusMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                HStack {
+                                    Image(systemName: "bus.fill")
+                                        .frame(width: 20)
+                                        .foregroundColor(.green)
+                                    Text("Bus ride:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.busRideMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Divider()
+                                
+                                HStack {
+                                    Image(systemName: "sum")
+                                        .frame(width: 20)
+                                        .foregroundColor(.primary)
+                                    Text("Total ETA:")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                    Spacer()
+                                    Text("\(etaBreakdown.totalMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        
+                        Divider()
+                    }
+                    
+                    // Bus Schedule - Next Departures for the recommended line
+                    if !transit.upcomingDepartures.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "calendar.badge.clock")
+                                    .foregroundColor(.blue)
+                                Text("\(transit.lineName) Schedule")
+                                    .font(.headline)
+                            }
+                            .padding(.top, 4)
+                            
+                            VStack(spacing: 6) {
+                                ForEach(transit.upcomingDepartures) { departure in
+                                    HStack {
+                                        // Time display
+                                        Text(departure.displayTime)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .frame(width: 70, alignment: .leading)
+                                        
+                                        // Minutes until departure
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "clock.fill")
+                                                .font(.caption2)
+                                            Text("\(departure.minutesUntilDeparture) min")
+                                                .font(.caption)
+                                        }
+                                        .foregroundColor(.blue)
+                                        .frame(width: 70, alignment: .leading)
+                                        
+                                        // Catchability indicator
+                                        if departure.isCatchable {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.caption2)
+                                                Text("Catchable")
+                                                    .font(.caption2)
+                                            }
+                                            .foregroundColor(.green)
+                                        } else {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .font(.caption2)
+                                                Text("Too soon")
+                                                    .font(.caption2)
+                                            }
+                                            .foregroundColor(.red)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        // Status badge
+                                        Text(departure.status.capitalized)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(statusColor(for: departure.status).opacity(0.2))
+                                            .foregroundColor(statusColor(for: departure.status))
+                                            .cornerRadius(4)
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(departure.isCatchable ? Color.green.opacity(0.05) : Color.gray.opacity(0.05))
+                                    .cornerRadius(6)
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                    }
+                    
+                    // Alternative Lines at Same Stop
+                    if !transit.alternativeLines.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Other Lines at \(transit.stopName)")
+                                .font(.headline)
+                                .padding(.top, 4)
+                            
+                            ForEach(transit.alternativeLines) { altLine in
+                                HStack {
+                                    // Line badge
+                                    Text(altLine.lineNumber)
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(altLine.destination)
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .lineLimit(1)
+                                        
+                                        Text(altLine.departureStatus.capitalized)
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "clock")
+                                            .font(.caption2)
+                                        Text("\(altLine.minutesUntilDeparture) min")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                    }
+                                    .foregroundColor(.orange)
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 8)
+                                .background(Color.gray.opacity(0.05))
+                                .cornerRadius(6)
+                            }
+                        }
+                        
+                        Divider()
+                    }
+                }
+            }
+            
+            // Alternative Transit Details (when walking is recommended but bus is available)
+            if recommendation.mode == .walk, let alternativeTransit = recommendation.alternativeTransitDetails {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Section header
+                    HStack {
+                        Image(systemName: "bus.fill")
+                            .foregroundColor(.blue)
+                        Text("Alternative: Take the Bus")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.top, 4)
+                    
+                    // Bus line and destination
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Line")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            HStack(spacing: 6) {
+                                Image(systemName: "bus.fill")
+                                    .foregroundColor(.blue)
+                                Text(alternativeTransit.lineName)
+                                    .font(.headline)
+                                    .fontWeight(.bold)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("Direction")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text(alternativeTransit.destinationName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    // Stop information
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "mappin.circle.fill")
+                                .foregroundColor(.red)
+                            Text(alternativeTransit.stopName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        
+                        // Departure time and status
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Next Departure")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(alternativeTransit.departureTime.formatted(date: .omitted, time: .shortened))
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            
+                            HStack {
+                                Image(systemName: "figure.walk")
+                                    .foregroundColor(.orange)
+                                Text("\(alternativeTransit.walkToStopMinutes) min walk")
+                                    .font(.caption)
+                            }
+                            
+                            HStack {
+                                Image(systemName: "clock.fill")
+                                    .foregroundColor(Color(alternativeTransit.statusColor))
+                                Text("\(alternativeTransit.minutesUntilDeparture) min")
+                                    .font(.caption)
+                            }
+                            
+                            // Status badge
+                            HStack(spacing: 4) {
+                                Text(alternativeTransit.statusText)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(alternativeTransit.statusColor).opacity(0.2))
+                            .foregroundColor(Color(alternativeTransit.statusColor))
+                            .cornerRadius(6)
+                        }
+                        
+                        // Platform and additional info
+                        HStack(spacing: 12) {
+                            if !alternativeTransit.platformName.isEmpty {
+                                HStack {
+                                    Image(systemName: "arrow.turn.up.right")
+                                        .foregroundColor(.secondary)
+                                    Text("Platform: \(alternativeTransit.platformName)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            // Operator badge
+                            if let operatorName = alternativeTransit.operatorName, !operatorName.isEmpty {
+                                Text(operatorName)
+                                    .font(.caption2)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.2))
+                                    .foregroundColor(.blue)
+                                    .cornerRadius(4)
+                            }
+                        }
+                        
+                        // Full direction if different from destination
+                        if let direction = alternativeTransit.direction, direction != alternativeTransit.destinationName {
+                            HStack {
+                                Image(systemName: "signpost.right.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                Text(direction)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Detailed ETA Breakdown
+                    if let etaBreakdown = alternativeTransit.etaBreakdown {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Detailed Journey Time")
+                                .font(.headline)
+                                .padding(.top, 4)
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Image(systemName: "figure.walk")
+                                        .frame(width: 20)
+                                        .foregroundColor(.orange)
+                                    Text("Walk to stop:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.walkToStopMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                HStack {
+                                    Image(systemName: "clock.fill")
+                                        .frame(width: 20)
+                                        .foregroundColor(.blue)
+                                    Text("Wait for bus:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.waitForBusMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                HStack {
+                                    Image(systemName: "bus.fill")
+                                        .frame(width: 20)
+                                        .foregroundColor(.green)
+                                    Text("Bus ride:")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    Text("\(etaBreakdown.busRideMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                Divider()
+                                
+                                HStack {
+                                    Image(systemName: "sum")
+                                        .frame(width: 20)
+                                        .foregroundColor(.primary)
+                                    Text("Total ETA:")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                    Spacer()
+                                    Text("\(etaBreakdown.totalMinutes) min")
+                                        .font(.subheadline)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        
+                        Divider()
+                    }
+                    
+                    // Bus Schedule - Next Departures for the recommended line
+                    if !alternativeTransit.upcomingDepartures.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "calendar.badge.clock")
+                                    .foregroundColor(.blue)
+                                Text("\(alternativeTransit.lineName) Schedule")
+                                    .font(.headline)
+                            }
+                            .padding(.top, 4)
+                            
+                            VStack(spacing: 6) {
+                                ForEach(alternativeTransit.upcomingDepartures) { departure in
+                                    HStack {
+                                        // Time display
+                                        Text(departure.displayTime)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .frame(width: 70, alignment: .leading)
+                                        
+                                        // Minutes until departure
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "clock.fill")
+                                                .font(.caption2)
+                                            Text("\(departure.minutesUntilDeparture) min")
+                                                .font(.caption)
+                                        }
+                                        .foregroundColor(.blue)
+                                        .frame(width: 70, alignment: .leading)
+                                        
+                                        // Catchability indicator
+                                        if departure.isCatchable {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.caption2)
+                                                Text("Catchable")
+                                                    .font(.caption2)
+                                            }
+                                            .foregroundColor(.green)
+                                        } else {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .font(.caption2)
+                                                Text("Too soon")
+                                                    .font(.caption2)
+                                            }
+                                            .foregroundColor(.red)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        // Status badge
+                                        Text(departure.status.capitalized)
+                                            .font(.caption2)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(statusColor(for: departure.status).opacity(0.2))
+                                            .foregroundColor(statusColor(for: departure.status))
+                                            .cornerRadius(4)
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(departure.isCatchable ? Color.green.opacity(0.05) : Color.gray.opacity(0.05))
+                                    .cornerRadius(6)
+                                }
+                            }
+                        }
+                        
+                        Divider()
+                    }
+                    
+                    // Alternative Lines at Same Stop
+                    if !alternativeTransit.alternativeLines.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Other Lines at \(alternativeTransit.stopName)")
+                                .font(.headline)
+                                .padding(.top, 4)
+                            
+                            ForEach(alternativeTransit.alternativeLines) { altLine in
+                                HStack {
+                                    // Line badge
+                                    Text(altLine.lineNumber)
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(4)
+                                    
+                                    // Destination
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(altLine.destination)
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .lineLimit(1)
+                                        
+                                        Text(altLine.nextDepartureTime.formatted(date: .omitted, time: .shortened))
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    // Catchability badge
+                                    if altLine.isCatchable {
+                                        HStack(spacing: 3) {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.caption2)
+                                            Text("Can catch")
+                                                .font(.caption2)
+                                        }
+                                        .foregroundColor(.green)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(Color.green.opacity(0.1))
+                                        .cornerRadius(4)
+                                    } else {
+                                        Text("Too soon")
+                                            .font(.caption2)
+                                            .foregroundColor(.orange)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 3)
+                                            .background(Color.orange.opacity(0.1))
+                                            .cornerRadius(4)
+                                    }
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 6)
+                                .background(Color.gray.opacity(0.05))
+                                .cornerRadius(6)
+                            }
+                        }
+                        
+                        Divider()
+                    }
                 }
             }
             
@@ -394,6 +979,22 @@ struct RecommendationView: View {
         return formatter.string(from: recommendation.timestamp)
     }
     
+    // Helper function to get status color for departures
+    private func statusColor(for status: String) -> Color {
+        switch status.lowercased() {
+        case "ontime", "on time":
+            return .green
+        case "delayed":
+            return .orange
+        case "early":
+            return .blue
+        case "cancelled":
+            return .red
+        default:
+            return .gray
+        }
+    }
+    
     private var weatherDisplayText: String {
         return "�️ Clear"
     }
@@ -422,15 +1023,6 @@ struct RecommendationView: View {
     }
     
     // MARK: - Actions
-    
-    private func startPulseAnimation() {
-        // Only pulse for high-confidence recommendations
-        if recommendation.confidence > 0.8 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                pulseAnimation = true
-            }
-        }
-    }
     
     private func openMapsForTransit() {
         // In a real app, this would open Maps with transit directions

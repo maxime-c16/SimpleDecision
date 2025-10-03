@@ -27,6 +27,9 @@ class SettingsViewModel: ObservableObject {
     @Published var showingDebugInfo = false
     @Published var debugLocationText = ""
     
+    // API Key configuration
+    @Published var primAPIKey: String = ""
+    
     // MARK: - Services
     private let settingsManager: AppSettingsManager
     private let locationService: LocationService
@@ -39,10 +42,10 @@ class SettingsViewModel: ObservableObject {
     // MARK: - Initialization
     @MainActor
     init(
-        settingsManager: AppSettingsManager = AppSettingsManager(),
-        locationService: LocationService = LocationService(),
-        backgroundScheduler: BackgroundScheduler = BackgroundScheduler.shared,
-        activityManager: ActivityManagerProtocol = ActivityManagerFactory.createActivityManager()
+        settingsManager: AppSettingsManager,
+        locationService: LocationService,
+        backgroundScheduler: BackgroundScheduler,
+        activityManager: ActivityManagerProtocol
     ) {
         self.settingsManager = settingsManager
         self.locationService = locationService
@@ -99,6 +102,9 @@ class SettingsViewModel: ObservableObject {
         } else {
             isActivitySupported = false
         }
+        
+        // Load saved API key
+        loadPRIMAPIKey()
     }
     
     // MARK: - Settings Actions
@@ -169,8 +175,50 @@ class SettingsViewModel: ObservableObject {
     /// Update walking preference
     func updatePreferWalking(_ prefer: Bool) {
         settingsManager.updatePreferWalking(prefer)
-        successMessage = prefer ? "Preference set to walking" : "Preference set to balanced"
+        
+        if prefer {
+            successMessage = "Walking preference enabled"
+        } else {
+            successMessage = "Walking preference disabled"
+        }
+        
         clearMessagesAfterDelay()
+    }
+    
+    // MARK: - API Key Management
+    
+    /// Save PRIM API key to Keychain
+    func savePRIMAPIKey() {
+        guard !primAPIKey.isEmpty else {
+            errorMessage = "API key cannot be empty"
+            clearMessagesAfterDelay()
+            return
+        }
+        
+        if PRIMClient.shared.saveAPIKey(primAPIKey) {
+            successMessage = "PRIM API key saved successfully"
+        } else {
+            errorMessage = "Failed to save API key to Keychain"
+        }
+        
+        clearMessagesAfterDelay()
+    }
+    
+    /// Clear PRIM API key from Keychain
+    func clearPRIMAPIKey() {
+        if PRIMClient.shared.removeAPIKey() {
+            primAPIKey = ""
+            successMessage = "PRIM API key cleared"
+        } else {
+            errorMessage = "Failed to clear API key"
+        }
+        
+        clearMessagesAfterDelay()
+    }
+    
+    /// Load saved PRIM API key from Keychain
+    func loadPRIMAPIKey() {
+        primAPIKey = PRIMClient.shared.getAPIKey()
     }
     
     /// Update maximum walking distance

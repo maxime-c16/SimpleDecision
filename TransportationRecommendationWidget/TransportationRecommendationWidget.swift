@@ -64,14 +64,46 @@ struct TransportationRecommendationWidgetEntryView : View {
                     .fontWeight(.medium)
             }
             
-            // Confidence indicator
-            HStack {
-                Image(systemName: "gauge")
-                    .font(.caption)
-                Text("\(entry.recommendation.confidencePercentage)%")
-                    .font(.caption)
+            // Bus schedule for transit recommendations
+            if let transit = entry.recommendation.transitDetails,
+               !transit.upcomingDepartures.isEmpty {
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Next \(transit.lineName)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    ForEach(transit.upcomingDepartures.prefix(3)) { departure in
+                        HStack {
+                            Text(departure.displayTime)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            
+                            Text("(\(departure.minutesUntilDeparture)m)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            if departure.isCatchable {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption2)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Confidence indicator for non-transit
+                HStack {
+                    Image(systemName: "gauge")
+                        .font(.caption)
+                    Text("\(entry.recommendation.confidencePercentage)%")
+                        .font(.caption)
+                }
+                .foregroundColor(.secondary)
             }
-            .foregroundColor(.secondary)
         }
         .padding(8)
     }

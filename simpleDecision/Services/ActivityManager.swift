@@ -61,7 +61,7 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
         }
         
         // End any existing activity first
-        await endAllActivities()
+        _ = await endAllActivities()
         
         // Create session ID that includes destination info
         let sessionId = "\(startLocationName)-to-\(destinationName)-\(Date().timeIntervalSince1970)"
