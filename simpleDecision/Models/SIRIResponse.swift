@@ -109,6 +109,7 @@ struct MonitoredCall: Codable {
     let vehicleAtStop: Bool?
     let destinationDisplay: [TextValue]?
     let expectedDepartureTime: String?
+    let aimedDepartureTime: String?  // Fallback if expected is nil
     let departureStatus: String?
     let arrivalStatus: String?
     
@@ -117,6 +118,7 @@ struct MonitoredCall: Codable {
         case vehicleAtStop = "VehicleAtStop"
         case destinationDisplay = "DestinationDisplay"
         case expectedDepartureTime = "ExpectedDepartureTime"
+        case aimedDepartureTime = "AimedDepartureTime"
         case departureStatus = "DepartureStatus"
         case arrivalStatus = "ArrivalStatus"
     }
@@ -159,6 +161,8 @@ extension SIRIResponse {
             return PRIMResponse(departures: [], responseTimestamp: Date())
         }
         
+        print("🔍 SIRI Response Parsing: \(delivery.monitoredStopVisit.count) visits")
+        
         let departures = delivery.monitoredStopVisit.compactMap { visit -> Departure? in
             let journey = visit.monitoredVehicleJourney
             
@@ -166,19 +170,44 @@ extension SIRIResponse {
             let lineNumber: String
             if let publishedName = journey.publishedLineName?.first?.value {
                 lineNumber = publishedName
+                print("   📍 Using PublishedLineName: '\(lineNumber)'")
             } else {
                 lineNumber = extractLineNumber(from: journey.lineRef.value)
+                print("   📍 Extracted from LineRef '\(journey.lineRef.value)': '\(lineNumber)'")
             }
             
-            // Parse ISO 8601 timestamp
-            guard let departureTime = ISO8601DateFormatter().date(from: journey.monitoredCall.expectedDepartureTime ?? "") else {
+            // Parse ISO 8601 timestamp - try expected first, then aimed
+            let departureTimeString = journey.monitoredCall.expectedDepartureTime 
+                ?? journey.monitoredCall.aimedDepartureTime
+            
+            guard let departureTimeStr = departureTimeString,
+                  let departureTime = ISO8601DateFormatter().date(from: departureTimeStr) else {
+                print("   ⚠️ Failed to parse departure time (expected and aimed both nil or invalid)")
                 return nil
             }
             
+            // Get stop name and platform info
             let stopName = journey.monitoredCall.stopPointName?.first?.value ?? "Unknown"
+            // PRIM API doesn't provide platform information in stop-monitoring endpoint
+            let platformName = ""
+            
+            // Get destination - try multiple fields
             let destinationName = journey.destinationName?.first?.value 
+                ?? journey.destinationShortName?.first?.value
                 ?? journey.monitoredCall.destinationDisplay?.first?.value 
                 ?? "Unknown"
+            
+            // Get direction - try directionName or fall back to destination
+            var direction = journey.directionName?.first?.value ?? destinationName
+            
+            // Clean up direction string (remove common prefixes)
+            if direction.hasPrefix("Direction ") {
+                direction = String(direction.dropFirst("Direction ".count))
+            }
+            
+            print("   ✅ Parsed: Line '\(lineNumber)' → '\(destinationName)' (dir: '\(direction)') @ \(departureTime)")
+            print("      Stop: '\(stopName)'")
+
             
             return Departure(
                 lineName: lineNumber,
@@ -187,8 +216,8 @@ extension SIRIResponse {
                 destinationRef: journey.destinationRef?.value,
                 expectedDepartureTime: departureTime,
                 departureStatus: journey.monitoredCall.departureStatus ?? "unknown",
-                platformName: stopName,
-                direction: journey.directionName?.first?.value,
+                platformName: platformName,
+                direction: direction,
                 vehicleJourneyRef: journey.framedVehicleJourneyRef?.datedVehicleJourneyRef,
                 operatorRef: journey.operatorRef?.value,
                 vehicleAtStop: journey.monitoredCall.vehicleAtStop ?? false
@@ -198,69 +227,31 @@ extension SIRIResponse {
         // Parse response timestamp
         let timestamp = ISO8601DateFormatter().date(from: siri.serviceDelivery.responseTimestamp) ?? Date()
         
+        print("✅ SIRI Parsing complete: \(departures.count) valid departures")
         return PRIMResponse(departures: departures, responseTimestamp: timestamp)
     }
     
     /// Extract readable line number from STIF line reference
     /// Examples:
-    /// - "STIF:Line::C01151:" -> "122" (bus 122 day service)
-    /// - "STIF:Line::C01398:" -> "N34" (night bus via fallback or PublishedLineName)
+    /// - "STIF:Line::C01151:" -> "122" (bus 122)
+    /// - "STIF:Line::C01398:" -> "N34" (night bus N34)
     /// - "STIF:Line::C01742:" -> "A" (RER A)
     /// - "STIF:Line::C01729:" -> "E" (RER E)
-    /// - "STIF:Line::C01371:" -> "1" (metro)
     private func extractLineNumber(from lineRef: String) -> String {
         // Remove STIF prefix and colons
         let code = lineRef.replacingOccurrences(of: "STIF:Line::", with: "")
             .replacingOccurrences(of: ":", with: "")
         
-        // Map known codes to line numbers (comprehensive mapping based on real API data)
+        // Map ONLY the required lines (VERIFIED from PRIM API requete-ligne endpoint)
         let lineMapping: [String: String] = [
-            // RER Lines (using short published names as they appear in API)
-            "C01742": "A",     // RER A
-            "C01743": "B",     // RER B
-            "C01727": "C",     // RER C
-            "C01728": "D",     // RER D
-            "C01729": "E",     // RER E
-            "C01730": "P",     // RER P (Paris-only service)
+            // RER Lines (VERIFIED)
+            "C01742": "A",     // RER A ✅
+            "C01729": "E",     // RER E ✅
             
-            // Metro Lines
-            "C01371": "M1",
-            "C01372": "M2",
-            "C01373": "M3",
-            "C01374": "M3bis",
-            "C01375": "M4",
-            "C01376": "M5",
-            "C01377": "M6",
-            "C01378": "M7",
-            "C01379": "M7bis",
-            "C01380": "M8",
-            "C01381": "M9",
-            "C01382": "M10",
-            "C01383": "M11",
-            "C01384": "M12",
-            "C01385": "M13",
-            "C01386": "M14",
-            
-            // Bus Lines (confirmed from API)
-            "C01151": "122",  // Bus 122 (day service)
-            "C01153": "124",  // Bus 124
-            "C01398": "N34",  // N34 Night bus (Noctilien)
-            
-            // Tramway Lines
-            "C01774": "T1",
-            "C01775": "T2",
-            "C01776": "T3a",
-            "C01777": "T3b",
-            "C01778": "T4",
-            "C01779": "T5",
-            "C01780": "T6",
-            "C01781": "T7",
-            "C01782": "T8",
-            "C01783": "T9",
-            "C01784": "T10",
-            "C01785": "T11",
-            "C01786": "T12",
-            "C01787": "T13"
+            // Bus Lines (VERIFIED)
+            "C01151": "122",   // Bus 122 ✅
+            "C01153": "124",   // Bus 124 ✅
+            "C01398": "N34",   // N34 Night bus (Noctilien)
         ]
         
         // Try mapping first

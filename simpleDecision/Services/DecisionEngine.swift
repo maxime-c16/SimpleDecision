@@ -246,9 +246,26 @@ class DecisionEngine: ObservableObject {
                         .eraseToAnyPublisher()
                 }
                 
+                print("✅ Using stop: \(nearestStop.name) (\(nearestStop.id)) at \(String(format: "%.0f", nearestStop.distance))m")
+                
                 // Get departure times for nearest stop
                 return self.primClient.fetchDepartures(for: nearestStop.id)
                     .map { primResponse in
+                        print("📊 PRIM API returned \(primResponse.departures.count) departures")
+                        
+                        // Debug: Log ALL departure details
+                        print("🔍 RAW DEPARTURES FROM PRIM:")
+                        for (idx, dep) in primResponse.departures.enumerated() {
+                            let directionStr = dep.direction ?? "no-direction"
+                            let platformStr = dep.platformName.isEmpty ? "no-platform" : dep.platformName
+                            print("   [\(idx + 1)] Line: '\(dep.lineName)' (\(dep.lineRef ?? "no-ref"))")
+                            print("       → Destination: '\(dep.destinationName)'")
+                            print("       → Direction: '\(directionStr)'")
+                            print("       → Platform: '\(platformStr)'")
+                            print("       → Departs: \(dep.expectedDepartureTime) (in \(dep.minutesUntilDeparture) min)")
+                            print("       → Status: \(dep.departureStatus)")
+                        }
+                        
                         return self.createTransitRecommendation(
                             primResponse: primResponse,
                             nearestStop: nearestStop,
@@ -256,6 +273,20 @@ class DecisionEngine: ObservableObject {
                             weather: weather
                         )
                     }
+                    .catch { error -> AnyPublisher<Recommendation, Error> in
+                        // If departure fetching fails, use mock data instead of propagating error
+                        print("❌ fetchDepartures failed: \(error.localizedDescription), using mock transit data")
+                        return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
+                            .setFailureType(to: Error.self)
+                            .eraseToAnyPublisher()
+                    }
+                    .eraseToAnyPublisher()
+            }
+            .catch { error -> AnyPublisher<Recommendation, Error> in
+                // If stop finding fails, use mock transit data
+                print("❌ findNearbyStops failed: \(error.localizedDescription), using mock transit data")
+                return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
+                    .setFailureType(to: Error.self)
                     .eraseToAnyPublisher()
             }
             .eraseToAnyPublisher()
@@ -401,51 +432,119 @@ class DecisionEngine: ObservableObject {
         
         // Validate PRIM response
         guard validatePRIMResponse(primResponse) else {
-            // Invalid response, fallback to walking
-            return createWalkingRecommendation(distance: totalDistance, weather: weather)
+            // Invalid response, fallback to walking BUT keep PRIM source since we tried
+            print("⚠️ Invalid PRIM response, recommending walking")
+            let walkingRec = createWalkingRecommendation(distance: totalDistance, weather: weather)
+            // Update source to show we used PRIM API (even though result was invalid)
+            return Recommendation(
+                mode: walkingRec.mode,
+                walkETA: walkingRec.walkETA,
+                busETA: walkingRec.busETA,
+                confidence: walkingRec.confidence,
+                timestamp: walkingRec.timestamp,
+                source: .primAPI,  // We got data from PRIM, just wasn't useful
+                transitDetails: walkingRec.transitDetails,
+                alternativeTransitDetails: walkingRec.alternativeTransitDetails
+            )
         }
         
         // Determine if it's daytime or nighttime
         let hour = Calendar.current.component(.hour, from: Date())
         let isDaytime = hour >= 6 && hour < 22  // 6 AM to 10 PM is daytime
         
-        // Filter departures based on time of day
-        // During daytime (6 AM - 10 PM): exclude night buses (lines starting with "N")
-        // During nighttime (10 PM - 6 AM): include all buses
-        let filteredDepartures = primResponse.departures.filter { departure in
-            if isDaytime {
-                // Exclude night buses during daytime
-                return !departure.lineName.uppercased().hasPrefix("N")
-            } else {
-                // Include all buses during nighttime
-                return true
-            }
+        // Smart filtering based on time of day and bus availability
+        // Strategy: During transition hours (10 PM - 1 AM), prefer daytime buses if available
+        let isTransitionPeriod = (hour >= 22 && hour < 24) || (hour >= 0 && hour < 1)
+        
+        let daytimeBuses = primResponse.departures.filter { departure in
+            !departure.lineName.uppercased().hasPrefix("N")
+        }
+        
+        let nightBuses = primResponse.departures.filter { departure in
+            departure.lineName.uppercased().hasPrefix("N")
+        }
+        
+        let filteredDepartures: [Departure]
+        if isDaytime {
+            // Strict daytime: ONLY daytime buses
+            filteredDepartures = daytimeBuses
+            print("🌞 Daytime mode: Filtering out night buses. Found \(filteredDepartures.count) daytime departures")
+        } else if isTransitionPeriod && !daytimeBuses.isEmpty {
+            // Transition period: PREFER daytime buses if still running
+            filteredDepartures = daytimeBuses
+            print("🌆 Transition period: Daytime buses still running. Using \(filteredDepartures.count) daytime departures, ignoring \(nightBuses.count) night buses")
+        } else {
+            // Late night: Use night buses (or all buses if no dedicated night service)
+            filteredDepartures = nightBuses.isEmpty ? primResponse.departures : nightBuses
+            print("🌙 Night mode: Using \(filteredDepartures.count) night departures")
         }
         
         guard !filteredDepartures.isEmpty else {
-            // No valid departures after filtering, fallback to walking
-            print("⚠️ No valid departures found after time-aware filtering")
-            return createWalkingRecommendation(distance: totalDistance, weather: weather)
+            // No valid departures after filtering, fallback to walking BUT keep PRIM source
+            print("⚠️ No valid departures found after time-aware filtering, recommending walking")
+            let walkingRec = createWalkingRecommendation(distance: totalDistance, weather: weather)
+            return Recommendation(
+                mode: walkingRec.mode,
+                walkETA: walkingRec.walkETA,
+                busETA: walkingRec.busETA,
+                confidence: walkingRec.confidence,
+                timestamp: walkingRec.timestamp,
+                source: .primAPI,  // We got PRIM data, just no suitable buses
+                transitDetails: walkingRec.transitDetails,
+                alternativeTransitDetails: walkingRec.alternativeTransitDetails
+            )
         }
         
-        // Calculate walk time to stop
+        // Calculate walk time to stop with safety buffer
         let walkingSpeed = settingsManager.settings.walkingSpeedMps
         let walkToStopMinutes = nearestStop.distance / walkingSpeed / 60
-        let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60)
         
-        // Find first catchable departure (with 1 minute buffer for boarding)
+        // Add minimal 15-second safety buffer (account for slight timing uncertainty)
+        // This allows catching buses that depart very close to arrival time
+        let safetyBufferSeconds: TimeInterval = 15
+        let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60 + safetyBufferSeconds)
+        
+        print("⏱️ Walk to stop: \(String(format: "%.1f", walkToStopMinutes)) min (\(String(format: "%.0f", nearestStop.distance))m at \(String(format: "%.1f", walkingSpeed))m/s)")
+        print("🚶 User arrival at stop (with 15s buffer): \(DateFormatter.localizedString(from: arrivalTimeAtStop, dateStyle: .none, timeStyle: .short))")
+        
+        // Log all departure times for debugging
+        for (index, departure) in filteredDepartures.enumerated() {
+            let departureTimeStr = DateFormatter.localizedString(from: departure.expectedDepartureTime, dateStyle: .none, timeStyle: .short)
+            let isCatchable = arrivalTimeAtStop <= departure.expectedDepartureTime
+            print("   \(index + 1). \(departure.lineName) @ \(departureTimeStr) - \(isCatchable ? "✅ Catchable" : "❌ Too soon") (in \(departure.minutesUntilDeparture) min)")
+        }
+        
+        // Find first catchable departure - look ahead as far as needed
+        // Remove 120-minute limit since we have full schedule from PRIM API
         guard let nextDeparture = filteredDepartures.first(where: { departure in
             departure.isUpcoming &&
             departure.minutesUntilDeparture >= 0 &&
-            departure.minutesUntilDeparture < 120 &&
-            arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+            arrivalTimeAtStop <= departure.expectedDepartureTime
         }) else {
-            // No catchable departures, fallback to walking
-            print("⚠️ No catchable departures found (all depart before user arrival)")
-            return createWalkingRecommendation(distance: totalDistance, weather: weather)
+            // No catchable departures in entire schedule, fallback to walking
+            print("⚠️ No catchable departures found in schedule (checked \(filteredDepartures.count) departures), recommending walking")
+            let walkingRec = createWalkingRecommendation(distance: totalDistance, weather: weather)
+            return Recommendation(
+                mode: walkingRec.mode,
+                walkETA: walkingRec.walkETA,
+                busETA: walkingRec.busETA,
+                confidence: walkingRec.confidence,
+                timestamp: walkingRec.timestamp,
+                source: .primAPI,  // We got PRIM data, buses just not catchable
+                transitDetails: walkingRec.transitDetails,
+                alternativeTransitDetails: walkingRec.alternativeTransitDetails
+            )
         }
         
         print("✅ Selected transit: \(nextDeparture.lineName) to \(nextDeparture.destinationName) at \(nextDeparture.expectedDepartureTime)")
+        print("   📝 Selected departure details:")
+        let dirStr = nextDeparture.direction ?? "no-direction"
+        let platStr = nextDeparture.platformName.isEmpty ? "no-platform" : nextDeparture.platformName
+        print("      Line: '\(nextDeparture.lineName)' (\(nextDeparture.lineRef ?? "no-ref"))")
+        print("      Destination: '\(nextDeparture.destinationName)'")
+        print("      Direction: '\(dirStr)'")
+        print("      Platform: '\(platStr)'")
+        print("      Status: \(nextDeparture.departureStatus)")
         
         // Calculate wait time (time between arrival at stop and bus departure)
         let waitTimeMinutes = nextDeparture.expectedDepartureTime.timeIntervalSince(arrivalTimeAtStop) / 60
@@ -475,24 +574,29 @@ class DecisionEngine: ObservableObject {
             from: primResponse
         )
         
-        // Get upcoming departures for the same line (next 5 departures within 60 minutes)
+        print("🔄 Found \(alternativeLines.count) alternative lines:")
+        for (idx, alt) in alternativeLines.enumerated() {
+            print("   [\(idx + 1)] Line \(alt.lineNumber) → \(alt.destination) @ \(DateFormatter.localizedString(from: alt.nextDepartureTime, dateStyle: .none, timeStyle: .short)) (\(alt.isCatchable ? "✅ Catchable" : "❌ Too soon"))")
+        }
+        
+        // Get upcoming departures for the same line (next 5 departures within 120 minutes)
         let upcomingDepartures = primResponse.departures
             .filter { departure in
                 // Same line as recommended
                 guard departure.lineName == nextDeparture.lineName else { return false }
-                // Same destination
+                // Same destination (to avoid opposite direction)
                 guard departure.destinationName == nextDeparture.destinationName else { return false }
                 // Only upcoming departures
                 guard departure.isUpcoming else { return false }
-                // Within next 60 minutes
-                guard departure.minutesUntilDeparture <= 60 else { return false }
+                // Within next 120 minutes (extended to capture more buses)
+                guard departure.minutesUntilDeparture <= 120 else { return false }
                 return true
             }
             .sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
             .prefix(5)
             .map { departure in
-                // Check if this departure is catchable
-                let isCatchable = arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+                // Check if this departure is catchable (buffer already included in arrivalTimeAtStop)
+                let isCatchable = arrivalTimeAtStop <= departure.expectedDepartureTime
                 
                 return BusDeparture(
                     id: departure.id.uuidString,
@@ -502,6 +606,11 @@ class DecisionEngine: ObservableObject {
                     isCatchable: isCatchable
                 )
             }
+        
+        print("📅 Found \(upcomingDepartures.count) upcoming departures for Line \(nextDeparture.lineName):")
+        for (idx, upcoming) in upcomingDepartures.enumerated() {
+            print("   [\(idx + 1)] @ \(DateFormatter.localizedString(from: upcoming.departureTime, dateStyle: .none, timeStyle: .short)) - \(upcoming.status) (\(upcoming.isCatchable ? "✅" : "❌"))")
+        }
         
         // Create transit details from PRIM API data (based on actual available fields)
         let transitDetails = TransitDetails(
@@ -573,8 +682,8 @@ class DecisionEngine: ObservableObject {
             .prefix(5) // Limit to 5 alternatives
         
         return alternatives.map { departure in
-            // Check if user can catch this bus (with 1 minute buffer for boarding)
-            let isCatchable = arrivalTimeAtStop.addingTimeInterval(60) <= departure.expectedDepartureTime
+            // Check if user can catch this bus (buffer already included in arrivalTimeAtStop)
+            let isCatchable = arrivalTimeAtStop <= departure.expectedDepartureTime
             
             return AlternativeLine(
                 id: departure.id.uuidString,

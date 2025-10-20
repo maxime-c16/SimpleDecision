@@ -4,5 +4,15 @@
 <dict>
 	<key>MKDirectionsApplicationSupportedModes</key>
 	<array/>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.simpleDecision.backgroundRefresh</string>
+		<string>com.simpleDecision.backgroundProcessing</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>

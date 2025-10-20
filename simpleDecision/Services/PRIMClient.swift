@@ -15,7 +15,7 @@ class PRIMClient: ObservableObject {
     static let shared = PRIMClient()
     
     private let baseURL = "https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring"
-    private let defaultAPIKey = "r1NDADYoOpUH6qS5XkJoPhiRrNjPpee5" // Development fallback
+    private let defaultAPIKey = "GTMvVD9BG8KTIRabGaEE3R65hkGe1N8D" // User's API key
     private let session = URLSession.shared
     private var cancellables = Set<AnyCancellable>()
     
@@ -48,14 +48,13 @@ class PRIMClient: ObservableObject {
                 .eraseToAnyPublisher()
         }
         
-        // Clean stop code - remove trailing colons that PRIM API doesn't accept
-        let cleanStopCode = stopCode.trimmingCharacters(in: CharacterSet(charactersIn: ":"))
+        // Ensure stop code has trailing colon (REQUIRED by PRIM API)
+        let cleanStopCode = stopCode.hasSuffix(":") ? stopCode : "\(stopCode):"
         
         var components = URLComponents(string: baseURL)!
         components.queryItems = [
-            URLQueryItem(name: "MonitoringRef", value: cleanStopCode),
-            // Don't send empty LineRef - causes API rejection
-            URLQueryItem(name: "apikey", value: apiKey)
+            URLQueryItem(name: "MonitoringRef", value: cleanStopCode)
+            // API key goes in header, not query params
         ]
         
         guard let url = components.url else {
@@ -65,9 +64,11 @@ class PRIMClient: ObservableObject {
         
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(apiKey, forHTTPHeaderField: "apikey")  // ✅ API key in header
         request.timeoutInterval = 10.0
         
         print("🚌 PRIM API Request: \(url.absoluteString)")
+        print("🔑 API Key: \(apiKey.prefix(10))...")
         
         isLoading = true
         rateLimiter.recordRequest()
@@ -189,32 +190,20 @@ class PRIMClient: ObservableObject {
             .catch { error -> AnyPublisher<[TransitStop], Error> in
                 print("⚠️ Navitia API error: \(error). Falling back to known working stops.")
                 
-                // Fallback to known good stops if Navitia fails
-                // Using real Île-de-France stops with verified PRIM API support
+                // Fallback to essential stops only
+                // Verified working with PRIM API on 2025-10-04
                 let fallbackStops = [
                     TransitStop(
-                        id: "STIF:StopPoint:Q:46543",  // Cimetière de Vincennes - Line 51, 53, 56, N34
+                        id: "STIF:StopArea:SP:47900:",  // Val de Fontenay RER A Station (towards Paris)
+                        name: "Val de Fontenay RER",
+                        coordinate: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4891),
+                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4891))
+                    ),
+                    TransitStop(
+                        id: "STIF:StopArea:SP:46543:",  // Cimetière de Vincennes (Bus 122 to VDF, 124 to Château)
                         name: "Cimetière de Vincennes",
                         coordinate: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121),
                         distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121))
-                    ),
-                    TransitStop(
-                        id: "STIF:StopPoint:Q:42016",  // Nation RER A/Metro - verified working
-                        name: "Nation",
-                        coordinate: CLLocationCoordinate2D(latitude: 48.8485, longitude: 2.3956),
-                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8485, longitude: 2.3956))
-                    ),
-                    TransitStop(
-                        id: "STIF:StopPoint:Q:47900",  // Val de Fontenay RER - high frequency
-                        name: "Val de Fontenay",
-                        coordinate: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4803),
-                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4803))
-                    ),
-                    TransitStop(
-                        id: "STIF:StopPoint:Q:41446",  // Châtelet - verified working
-                        name: "Châtelet",
-                        coordinate: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472),
-                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8583, longitude: 2.3472))
                     )
                 ].sorted { $0.distance < $1.distance }  // Sort by distance to user
                 
@@ -274,39 +263,39 @@ class PRIMClient: ObservableObject {
         let hour = Calendar.current.component(.hour, from: Date())
         let isDaytime = hour >= 6 && hour < 22  // Daytime: 6 AM to 10 PM
         
-        // Use realistic daytime data instead of night buses
+        // Use realistic Val de Fontenay data based on real API responses
         let departures: [Departure]
         
         if isDaytime {
             departures = [
                 Departure(
-                    lineName: "124",  // Bus 124 (C01153) - actual daytime bus
-                    lineRef: "STIF:Line::C01153:",
-                    destinationName: "Porte de Vincennes",
-                    destinationRef: "STIF:StopPoint:Q:421412:",
+                    lineName: "A",  // RER A - primary line at Val de Fontenay
+                    lineRef: "STIF:Line::C01742:",
+                    destinationName: "Cergy le Haut",
+                    destinationRef: nil,
                     expectedDepartureTime: Date().addingTimeInterval(3 * 60), // 3 minutes
                     departureStatus: "onTime",
-                    platformName: "Nation",
-                    direction: "Direction Porte de Vincennes",
+                    platformName: "Val de Fontenay",
+                    direction: "Cergy le Haut",
                     vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
+                    operatorRef: "STIF:Operator::RATP:",
                     vehicleAtStop: false
                 ),
                 Departure(
-                    lineName: "A",  // RER A from real API (C01371) - major daytime line
-                    lineRef: "STIF:Line::C01371:",
-                    destinationName: "Cergy-Le-Haut",
+                    lineName: "A",  // RER A - alternate direction
+                    lineRef: "STIF:Line::C01742:",
+                    destinationName: "Poissy",
                     destinationRef: nil,
                     expectedDepartureTime: Date().addingTimeInterval(5 * 60), // 5 minutes
                     departureStatus: "onTime",
-                    platformName: "Nation RER A",
-                    direction: "Direction Cergy",
+                    platformName: "Val de Fontenay",
+                    direction: "Poissy",
                     vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
+                    operatorRef: "STIF:Operator::RATP:",
                     vehicleAtStop: false
                 ),
                 Departure(
-                    lineName: "122",  // Bus 122 - actual daytime bus
+                    lineName: "122",  // Bus 122 - serves Val de Fontenay area
                     lineRef: "STIF:Line::C01152:",
                     destinationName: "Gare de Lyon",
                     destinationRef: nil,
@@ -376,6 +365,8 @@ class PRIMClient: ObservableObject {
         // Collect all unique line refs that need enrichment (filter out nil lineRefs)
         let lineRefsToFetch = Set(response.departures.compactMap { $0.lineRef })
         
+        print("🔍 Enrichment: Found \(lineRefsToFetch.count) unique line refs to fetch: \(lineRefsToFetch)")
+        
         if lineRefsToFetch.isEmpty {
             return Just(response)
                 .setFailureType(to: Error.self)
@@ -385,6 +376,9 @@ class PRIMClient: ObservableObject {
         // Fetch published names for all unique line refs in parallel
         let publishers = lineRefsToFetch.map { lineRef -> AnyPublisher<(String, String?), Never> in
             LineInfoService.shared.fetchPublishedLineName(for: lineRef)
+                .handleEvents(receiveOutput: { publishedName in
+                    print("✅ Fetched name for \(lineRef): \(publishedName ?? "nil")")
+                })
                 .replaceError(with: nil)
                 .map { publishedName in (lineRef, publishedName) }
                 .eraseToAnyPublisher()
@@ -397,6 +391,7 @@ class PRIMClient: ObservableObject {
                 var nameMap: [String: String?] = [:]
                 for (lineRef, publishedName) in fetchedNames {
                     nameMap[lineRef] = publishedName
+                    print("📝 Mapping \(lineRef) -> \(publishedName ?? "nil")")
                 }
                 
                 // Update departures with published names where available
@@ -405,8 +400,11 @@ class PRIMClient: ObservableObject {
                           let publishedName = nameMap[lineRef],
                           let name = publishedName,
                           !name.isEmpty else {
+                        print("⚠️ No published name for departure: \(departure.lineName) (lineRef: \(departure.lineRef ?? "nil"))")
                         return departure
                     }
+                    
+                    print("✨ Enriched \(departure.lineName) -> \(name) for line \(lineRef)")
                     
                     return Departure(
                         lineName: name,
@@ -422,6 +420,8 @@ class PRIMClient: ObservableObject {
                         vehicleAtStop: departure.vehicleAtStop
                     )
                 }
+                
+                print("🎯 Enrichment complete: \(enrichedDepartures.count) departures processed")
                 
                 return PRIMResponse(
                     departures: enrichedDepartures,

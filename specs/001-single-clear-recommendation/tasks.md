@@ -177,7 +177,7 @@ Task: "Create Live Activity UI views in TransportationRecommendationWidget/Views
 - **Device Testing**: Live Activities don't appear in simulator (physical device required)
 
 ### Real API Details (Validated)
-- **PRIM API Key**: `r1NDADYoOpUH6qS5XkJoPhiRrNjPpee5` (development)
+- **PRIM API Key**: `GTMvVD9BG8KTIRabGaEE3R65hkGe1N8D` (user's production key)
 - **Rate Limit**: 5 requests/second for new API keys
 - **Test Endpoints**: Val de Fontenay (SP:47900), Cimetière de Vincennes (SP:46543)
 - **Response Format**: SIRI Lite JSON with ISO 8601 timestamps

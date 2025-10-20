@@ -14,8 +14,19 @@ class LineInfoService {
     static let shared = LineInfoService()
     
     private let baseURL = "https://prim.iledefrance-mobilites.fr/marketplace/requete-ligne"
-    private let apiKey = "r1NDADYoOpUH6qS5XkJoPhiRrNjPpee5"
     private let session = URLSession.shared
+    
+    // Hardcoded fallback mapping for transit lines used in the app
+    // Verified from PRIM API on 2025-10-04
+    private let knownLines: [String: String] = [
+        // Val de Fontenay RER Station (SP:47900)
+        "STIF:Line::C01742:": "RER A",        // RER A (towards Paris: Cergy/Poissy/Saint-Germain-en-Laye)
+        "STIF:Line::C01729:": "RER E",        // RER E (Tournan/Villiers-sur-Marne ↔ Nanterre-La Folie)
+        
+        // Cimetière de Vincennes Bus Stop (SP:46543)
+        "STIF:Line::C01151:": "Bus 122",      // Bus 122 (to Val-de-Fontenay)
+        "STIF:Line::C01153:": "Bus 124",      // Bus 124 (to Château de Vincennes)
+    ]
     
     // Cache for published line names to avoid repeated API calls
     private var lineNameCache: [String: String] = [:]
@@ -23,14 +34,31 @@ class LineInfoService {
     
     private init() {}
     
+    /// Get API key from PRIMClient (uses same key)
+    private var apiKey: String {
+        return PRIMClient.shared.getAPIKey()
+    }
+    
     /// Fetch published line name for a given line reference
     func fetchPublishedLineName(for lineRef: String) -> AnyPublisher<String?, Error> {
-        // Check cache first
+        // Check hardcoded mapping first
+        if let knownName = knownLines[lineRef] {
+            print("📖 Known line: \(lineRef) = \(knownName)")
+            cacheName(knownName, for: lineRef)
+            return Just(knownName)
+                .setFailureType(to: Error.self)
+                .eraseToAnyPublisher()
+        }
+        
+        // Check cache second
         if let cached = getCachedName(for: lineRef) {
+            print("💾 Cache HIT for \(lineRef): \(cached)")
             return Just(cached)
                 .setFailureType(to: Error.self)
                 .eraseToAnyPublisher()
         }
+        
+        print("🌐 Fetching published name for \(lineRef) from PRIM API...")
         
         var components = URLComponents(string: baseURL)!
         components.queryItems = [
@@ -38,6 +66,7 @@ class LineInfoService {
         ]
         
         guard let url = components.url else {
+            print("❌ Invalid URL for LineRef: \(lineRef)")
             return Fail(error: URLError(.badURL))
                 .eraseToAnyPublisher()
         }
@@ -47,15 +76,19 @@ class LineInfoService {
         request.setValue(apiKey, forHTTPHeaderField: "apikey")
         request.timeoutInterval = 10.0
         
+        print("📡 LineInfo API Request: \(url.absoluteString)")
+        
         return session.dataTaskPublisher(for: request)
             .map(\.data)
             .decode(type: LineDiscoveryResponse.self, decoder: JSONDecoder())
             .map { [weak self] response in
                 let publishedName = response.extractPublishedLineName()
+                print("✅ LineInfo API Response for \(lineRef): \(publishedName ?? "nil")")
                 self?.cacheName(publishedName, for: lineRef)
                 return publishedName
             }
-            .catch { _ -> AnyPublisher<String?, Error> in
+            .catch { error -> AnyPublisher<String?, Error> in
+                print("❌ LineInfo API Error for \(lineRef): \(error.localizedDescription)")
                 // Return nil on error, fallback to line ref extraction
                 return Just(nil)
                     .setFailureType(to: Error.self)
