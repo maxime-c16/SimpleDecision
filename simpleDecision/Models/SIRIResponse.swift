@@ -162,7 +162,7 @@ struct TrainNumbers: Codable {
 
 extension SIRIResponse {
     /// Convert SIRI response to PRIMResponse for app use
-    func toPRIMResponse() -> PRIMResponse {
+    func toPRIMResponse(stopName: String? = nil) -> PRIMResponse {
         guard let delivery = siri.serviceDelivery.stopMonitoringDelivery.first else {
             print("❌ No StopMonitoringDelivery found in response!")
             return PRIMResponse(departures: [], responseTimestamp: Date())
@@ -175,7 +175,7 @@ extension SIRIResponse {
             
             // Debug: Log line reference and published name from API
             let publishedNameFromAPI = journey.publishedLineName?.first?.value
-            let extractedFromRef = extractLineNumber(from: journey.lineRef.value)
+            _ = extractLineNumber(from: journey.lineRef.value)
             
             // Try to get published line name first, fallback to extraction
             let lineNumber: String
@@ -203,8 +203,8 @@ extension SIRIResponse {
                 return nil
             }
             
-            // Get stop name and platform info
-            let stopName = journey.monitoredCall.stopPointName?.first?.value ?? "Unknown"
+            // Get stop name from parameter (passed from API call) or fallback to response data
+            let actualStopName = stopName ?? (journey.monitoredCall.stopPointName?.first?.value ?? "Unknown")
             // PRIM API doesn't provide platform information in stop-monitoring endpoint
             let platformName = ""
             
@@ -233,7 +233,8 @@ extension SIRIResponse {
                 direction: direction,
                 vehicleJourneyRef: journey.framedVehicleJourneyRef?.datedVehicleJourneyRef,
                 operatorRef: journey.operatorRef?.value,
-                vehicleAtStop: journey.monitoredCall.vehicleAtStop ?? false
+                vehicleAtStop: journey.monitoredCall.vehicleAtStop ?? false,
+                stopName: actualStopName
             )
         }
         

@@ -92,7 +92,9 @@ class PRIMClient: ObservableObject {
             }
             .decode(type: SIRIResponse.self, decoder: JSONDecoder())
             .map { siriResponse in
-                siriResponse.toPRIMResponse()
+                // Map stop code to stop name for filtering
+                let stopName = self.mapStopCodeToName(stopCode)
+                return siriResponse.toPRIMResponse(stopName: stopName)
             }
             .flatMap { primResponse -> AnyPublisher<PRIMResponse, Error> in
                 // Enrich departures with published line names from requete-ligne endpoint
@@ -342,12 +344,12 @@ class PRIMClient: ObservableObject {
                 Departure(
                     lineName: "122",  // Bus 122 - serves Val de Fontenay area
                     lineRef: "STIF:Line::C01152:",
-                    destinationName: "Gare de Lyon",
+                    destinationName: "Val de Fontenay",
                     destinationRef: nil,
                     expectedDepartureTime: Date().addingTimeInterval(8 * 60), // 8 minutes
                     departureStatus: "onTime",
                     platformName: "Nation",
-                    direction: "Direction Gare de Lyon",
+                    direction: "Direction Val de Fontenay",
                     vehicleJourneyRef: nil,
                     operatorRef: "RATP:Operator::100:",
                     vehicleAtStop: false
@@ -453,7 +455,8 @@ class PRIMClient: ObservableObject {
                         direction: departure.direction,
                         vehicleJourneyRef: departure.vehicleJourneyRef,
                         operatorRef: departure.operatorRef,
-                        vehicleAtStop: departure.vehicleAtStop
+                        vehicleAtStop: departure.vehicleAtStop,
+                        stopName: departure.stopName
                     )
                 }
                 
@@ -509,11 +512,25 @@ class PRIMClient: ObservableObject {
                 direction: departure.direction,
                 vehicleJourneyRef: departure.vehicleJourneyRef,
                 operatorRef: departure.operatorRef,
-                vehicleAtStop: departure.vehicleAtStop
+                vehicleAtStop: departure.vehicleAtStop,
+                stopName: departure.stopName
             )
         }
         
         return refinedDepartures
+    }
+    
+    /// Map stop code to stop name for filtering purposes
+    private func mapStopCodeToName(_ stopCode: String) -> String {
+        // Extract the numeric ID from stop code like "STIF:StopArea:SP:46543:"
+        if stopCode.contains("46543") {
+            return "Cimetière de Vincennes"
+        } else if stopCode.contains("47900") {
+            return "Val de Fontenay RER"
+        } else if stopCode.contains("473595") {
+            return "Val de Fontenay Bus"
+        }
+        return "Unknown Stop"
     }
 }
 
@@ -530,6 +547,19 @@ struct TransitStop: Codable, Identifiable {
         } else {
             return String(format: "%.1fkm", distance / 1000)
         }
+    }
+    
+    /// Map stop code to stop name for filtering purposes
+    private func mapStopCodeToName(_ stopCode: String) -> String {
+        // Extract the numeric ID from stop code like "STIF:StopArea:SP:46543:"
+        if stopCode.contains("46543") {
+            return "Cimetière de Vincennes"
+        } else if stopCode.contains("47900") {
+            return "Val de Fontenay RER"
+        } else if stopCode.contains("473595") {
+            return "Val de Fontenay Bus"
+        }
+        return "Unknown Stop"
     }
 }
 

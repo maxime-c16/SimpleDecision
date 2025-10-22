@@ -11,11 +11,11 @@ import Combine
 
 /// User preferences and API configuration
 struct AppSettings: Codable {
-    let primAPIEnabled: Bool
-    let primAPIKeyConfigured: Bool
-    let locationPermissionRequested: Bool
-    let defaultDestination: UUID?
-    let lastKnownLocation: CLLocationCoordinate2D?
+    var primAPIEnabled: Bool
+    var primAPIKeyConfigured: Bool
+    var locationPermissionRequested: Bool
+    var defaultDestination: UUID?
+    var lastKnownLocation: CLLocationCoordinate2D?
     let refreshIntervalSeconds: Int
     var enableDebugControls: Bool
     
@@ -23,6 +23,9 @@ struct AppSettings: Codable {
     var walkingSpeedMps: Double // Walking speed in meters per second
     var preferWalking: Bool // User prefers walking over transit
     var maxWalkingDistanceMeters: Double // Maximum distance willing to walk
+    
+    // Transportation filtering preferences
+    var transportationPreferences: TransportationPreferences
     
     /// Default settings for new installations
     static let defaultSettings = AppSettings(
@@ -35,7 +38,8 @@ struct AppSettings: Codable {
         enableDebugControls: true,                // Enable for development
         walkingSpeedMps: 1.4,                    // Average walking speed (5 km/h)
         preferWalking: false,                     // Balanced recommendation
-        maxWalkingDistanceMeters: 2000           // 2km max walking distance
+        maxWalkingDistanceMeters: 2000,          // 2km max walking distance
+        transportationPreferences: TransportationPreferences()  // Use defaults
     )
     
     /// Check if basic setup is complete
@@ -73,161 +77,66 @@ class AppSettingsManager: ObservableObject {
     
     /// Save current settings to UserDefaults
     func saveSettings() {
+        print("🔧 AppSettingsManager.saveSettings() called")
         if let data = try? JSONEncoder().encode(settings) {
             userDefaults.set(data, forKey: settingsKey)
+            print("🔧 AppSettingsManager: Settings saved successfully")
+        } else {
+            print("🔧 AppSettingsManager: Failed to encode settings")
         }
     }
     
     /// Update PRIM API enabled status
     func updatePRIMEnabled(_ enabled: Bool) {
-        settings = AppSettings(
-            primAPIEnabled: enabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.primAPIEnabled = enabled
         saveSettings()
     }
     
     /// Update API key configured status
     func updateAPIKeyConfigured(_ configured: Bool) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: configured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.primAPIKeyConfigured = configured
         saveSettings()
     }
     
     /// Update location permission requested status
     func updateLocationPermissionRequested(_ requested: Bool) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: requested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.locationPermissionRequested = requested
         saveSettings()
     }
     
     /// Update default destination
     func updateDefaultDestination(_ destinationId: UUID?) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: destinationId,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.defaultDestination = destinationId
         saveSettings()
     }
     
     /// Update last known location
     func updateLastKnownLocation(_ location: CLLocationCoordinate2D?) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: location,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.lastKnownLocation = location
         saveSettings()
     }
     
     /// Update debug controls enabled status
     func updateDebugControlsEnabled(_ enabled: Bool) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: enabled,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.enableDebugControls = enabled
         saveSettings()
     }
     
     /// Update walking speed preference
     func updateWalkingSpeed(_ speedMps: Double) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: max(0.5, min(speedMps, 3.0)), // Clamp between 0.5-3.0 m/s
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.walkingSpeedMps = max(0.5, min(speedMps, 3.0)) // Clamp between 0.5-3.0 m/s
         saveSettings()
     }
     
     /// Update walking preference
     func updatePreferWalking(_ prefer: Bool) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: prefer,
-            maxWalkingDistanceMeters: settings.maxWalkingDistanceMeters
-        )
+        settings.preferWalking = prefer
         saveSettings()
     }
     
     /// Update maximum walking distance
     func updateMaxWalkingDistance(_ distanceMeters: Double) {
-        settings = AppSettings(
-            primAPIEnabled: settings.primAPIEnabled,
-            primAPIKeyConfigured: settings.primAPIKeyConfigured,
-            locationPermissionRequested: settings.locationPermissionRequested,
-            defaultDestination: settings.defaultDestination,
-            lastKnownLocation: settings.lastKnownLocation,
-            refreshIntervalSeconds: settings.refreshIntervalSeconds,
-            enableDebugControls: settings.enableDebugControls,
-            walkingSpeedMps: settings.walkingSpeedMps,
-            preferWalking: settings.preferWalking,
-            maxWalkingDistanceMeters: max(500, min(distanceMeters, 10000)) // Clamp 500m-10km
-        )
+        settings.maxWalkingDistanceMeters = max(500, min(distanceMeters, 10000)) // Clamp 500m-10km
         saveSettings()
     }
     

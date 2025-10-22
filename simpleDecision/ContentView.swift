@@ -555,7 +555,7 @@ struct SettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section("Location") {
                     HStack {
@@ -583,6 +583,22 @@ struct SettingsView: View {
                         Spacer()
                         Text(viewModel.activityStatusText)
                             .foregroundColor(viewModel.activityStatusColor)
+                    }
+                }
+                
+                Section("Transportation Preferences") {
+                    NavigationLink(destination: TransportationConfigurationView(settingsViewModel: viewModel)) {
+                        HStack {
+                            Image(systemName: "tram.fill")
+                                .foregroundColor(.blue)
+                            Text("Configure Transit Filters")
+                        }
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Customize which lines, stops, and destinations you want to monitor")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
                 

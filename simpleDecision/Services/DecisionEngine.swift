@@ -255,15 +255,36 @@ class DecisionEngine: ObservableObject {
                 }
                 
                 // Fetch departures from all nearby stops in parallel
+                if sortedStops.isEmpty {
+                    return Fail(error: NSError(domain: "DecisionEngine", code: -1, userInfo: nil))
+                        .eraseToAnyPublisher()
+                }
+                
                 let departurePublishers = sortedStops.map { stop -> AnyPublisher<(TransitStop, PRIMResponse), Error> in
                     self.primClient.fetchDepartures(for: stop.id)
                         .map { primResponse in (stop, primResponse) }
                         .eraseToAnyPublisher()
                 }
                 
-                return Publishers.MergeMany(departurePublishers)
-                    .collect()
-                    .map { results -> Recommendation in
+                // Use zip with reduce to combine all publishers
+                let combinedPublisher = departurePublishers.reduce(nil as AnyPublisher<[(TransitStop, PRIMResponse)], Error>?) { accumulated, publisher in
+                    if let accumulated = accumulated {
+                        return accumulated.zip(publisher)
+                            .map { array, item in array + [item] }
+                            .eraseToAnyPublisher()
+                    } else {
+                        return publisher.map { [$0] }.eraseToAnyPublisher()
+                    }
+                }
+                
+                guard let combinedPublisher = combinedPublisher else {
+                    return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
+                        .setFailureType(to: Error.self)
+                        .eraseToAnyPublisher()
+                }
+                
+                return combinedPublisher
+                    .flatMap { results -> AnyPublisher<Recommendation, Error> in
                         print("🔍 DEBUG: Fetched departures from \(results.count) stops")
                         
                         // Sort results by distance (matches sortedStops order)
@@ -291,25 +312,42 @@ class DecisionEngine: ObservableObject {
                         // Sort merged departures by time
                         mergedDepartures.sort { $0.expectedDepartureTime < $1.expectedDepartureTime }
                         
-                        // Filter out unwanted bus lines (e.g., Bus 127)
-                        let allowedLines = Set(["RER A", "RER E", "Bus 122", "Bus 124", "N34"])
+                        // Debug: Show user preferences before filtering
+                        let prefs = self.settingsManager.settings.transportationPreferences
+                        print("🔧 User Preferences:")
+                        print("   enabledLines: \(prefs.enabledLines)")
+                        print("   enabledStops: \(prefs.enabledStops)")
+                        print("   excludedDestinations: \(prefs.excludedDestinations)")
+                        let allowedDestStr = prefs.allowedDestinations.isEmpty ? "[] (all allowed)" : "\(prefs.allowedDestinations)"
+                        print("   allowedDestinations: \(allowedDestStr)")
+                        
+                        // Filter using user preferences
                         let filteredDepartures = mergedDepartures.filter { departure in
-                            allowedLines.contains(departure.lineName)
+                            return self.settingsManager.settings.transportationPreferences.shouldIncludeDeparture(
+                                lineName: departure.lineName,
+                                destination: departure.destinationName,
+                                stopName: departure.stopName ?? "Unknown"
+                            )
                         }
                         
-                        print("📊 Combined \(mergedDepartures.count) departures, filtered to \(filteredDepartures.count) (removed unwanted lines)")
+                        print("📊 Combined \(mergedDepartures.count) departures, filtered to \(filteredDepartures.count) (applied user preferences)")
                         
                         // Create recommendation using filtered departures from all stops
                         if let primaryStop = nearestStop {
                             print("✅ Using nearest stop: \(primaryStop.name)")
-                            return self.createTransitRecommendation(
+                            let recommendation = self.createTransitRecommendation(
                                 primResponse: PRIMResponse(departures: filteredDepartures, responseTimestamp: Date()),
                                 nearestStop: primaryStop,
                                 totalDistance: distance,
                                 weather: weather
                             )
+                            return Just(recommendation)
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
                         } else {
-                            return self.createMockTransitRecommendation(distance: distance, weather: weather)
+                            return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
+                                .setFailureType(to: Error.self)
+                                .eraseToAnyPublisher()
                         }
                     }
                     .catch { error -> AnyPublisher<Recommendation, Error> in

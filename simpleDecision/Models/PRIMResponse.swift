@@ -110,11 +110,12 @@ struct Departure: Codable, Identifiable {
     let vehicleJourneyRef: String?    // Unique journey identifier
     let operatorRef: String?          // Transport operator reference (e.g., "MeC_Bus_PC:Operator::100:")
     let vehicleAtStop: Bool           // Whether vehicle is currently at stop
+    var stopName: String?             // Name of the stop this departure is from
     
     enum CodingKeys: String, CodingKey {
         case lineName, lineRef, destinationName, destinationRef
         case expectedDepartureTime, departureStatus, platformName, direction
-        case vehicleJourneyRef, operatorRef, vehicleAtStop
+        case vehicleJourneyRef, operatorRef, vehicleAtStop, stopName
     }
     
     init(
@@ -128,7 +129,8 @@ struct Departure: Codable, Identifiable {
         direction: String? = nil,
         vehicleJourneyRef: String? = nil,
         operatorRef: String? = nil,
-        vehicleAtStop: Bool = false
+        vehicleAtStop: Bool = false,
+        stopName: String? = nil
     ) {
         self.id = UUID()
         self.lineName = lineName
@@ -142,6 +144,7 @@ struct Departure: Codable, Identifiable {
         self.vehicleJourneyRef = vehicleJourneyRef
         self.operatorRef = operatorRef
         self.vehicleAtStop = vehicleAtStop
+        self.stopName = stopName
     }
     
     init(from decoder: Decoder) throws {

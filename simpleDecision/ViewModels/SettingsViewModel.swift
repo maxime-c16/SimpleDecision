@@ -390,6 +390,18 @@ class SettingsViewModel: ObservableObject {
         return status
     }
     
+    /// Save current settings including transportation preferences
+    func saveSettings() {
+        print("🔧 SettingsViewModel.saveSettings() called")
+        print("🔧 Current transportationPreferences: enabledLines=\(settings.transportationPreferences.enabledLines)")
+        settingsManager.settings = settings
+        settingsManager.saveSettings()
+        successMessage = "Settings saved successfully"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            self.successMessage = nil
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func clearMessagesAfterDelay() {
