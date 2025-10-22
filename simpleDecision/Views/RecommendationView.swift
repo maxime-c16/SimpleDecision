@@ -83,6 +83,11 @@ struct RecommendationView: View {
                                 .font(.caption2)
                                 .foregroundColor(.blue)
                         }
+                        
+                        // DEBUG: Show lineRef for debugging
+                        Text("Ref: \(transit.lineRef ?? "no-ref")")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
                     }
                 } else if let alternativeTransit = recommendation.alternativeTransitDetails {
                     // Show alternative transit option when walking is recommended
@@ -94,7 +99,7 @@ struct RecommendationView: View {
                             Text("Alternative:")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            Text("Bus \(alternativeTransit.lineName)")
+                            Text("\(alternativeTransit.lineName)")
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(.blue)
@@ -108,6 +113,11 @@ struct RecommendationView: View {
                                 .font(.caption2)
                                 .foregroundColor(.orange)
                         }
+                        
+                        // DEBUG: Show lineRef for debugging
+                        Text("Ref: \(alternativeTransit.lineRef ?? "no-ref")")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
                     }
                     .padding(8)
                     .background(Color.blue.opacity(0.1))

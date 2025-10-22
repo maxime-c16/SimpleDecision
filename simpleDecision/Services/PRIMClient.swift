@@ -388,6 +388,16 @@ class PRIMClient: ObservableObject {
         // Collect all unique line refs that need enrichment (filter out nil lineRefs)
         let lineRefsToFetch = Set(response.departures.compactMap { $0.lineRef })
         
+        print("🔍 ENRICHMENT DEBUG:")
+        print("   Found \(lineRefsToFetch.count) unique line refs to enrich")
+        for lineRef in lineRefsToFetch.sorted() {
+            let departuresToFetch = response.departures.filter { $0.lineRef == lineRef }
+            print("   • \(lineRef): \(departuresToFetch.count) departures")
+            if let firstDep = departuresToFetch.first {
+                print("     Current name: '\(firstDep.lineName)'")
+            }
+        }
+        
         if lineRefsToFetch.isEmpty {
             return Just(response)
                 .setFailureType(to: Error.self)
@@ -407,8 +417,10 @@ class PRIMClient: ObservableObject {
             .map { (fetchedNames: [(String, String?)]) -> PRIMResponse in
                 // Create a mapping of lineRef -> publishedName
                 var nameMap: [String: String?] = [:]
+                print("📝 ENRICHMENT MAPPING RESULTS:")
                 for (lineRef, publishedName) in fetchedNames {
                     nameMap[lineRef] = publishedName
+                    print("   \(lineRef) → \(publishedName ?? "nil")")
                 }
                 
                 // Update departures with published names where available
@@ -417,7 +429,12 @@ class PRIMClient: ObservableObject {
                           let publishedName = nameMap[lineRef],
                           let name = publishedName,
                           !name.isEmpty else {
+                        print("⚠️ No enrichment for '\(departure.lineName)' (LineRef: \(departure.lineRef ?? "nil"))")
                         return departure
+                    }
+                    
+                    if departure.lineName != name {
+                        print("✨ ENRICHED: '\(departure.lineName)' → '\(name)' for LineRef \(lineRef)")
                     }
                     
                     return Departure(

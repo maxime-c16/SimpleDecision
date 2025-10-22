@@ -173,12 +173,22 @@ extension SIRIResponse {
         let departures = delivery.monitoredStopVisit.compactMap { visit -> Departure? in
             let journey = visit.monitoredVehicleJourney
             
+            // Debug: Log line reference and published name from API
+            let publishedNameFromAPI = journey.publishedLineName?.first?.value
+            let extractedFromRef = extractLineNumber(from: journey.lineRef.value)
+            
+            print("🔍 LINE DEBUG [LineRef: \(journey.lineRef.value)]")
+            print("   → PublishedLineName from SIRI: \(publishedNameFromAPI ?? "nil")")
+            print("   → Extracted from LineRef: \(extractedFromRef)")
+            
             // Try to get published line name first, fallback to extraction
             let lineNumber: String
-            if let publishedName = journey.publishedLineName?.first?.value {
+            if let publishedName = publishedNameFromAPI {
                 lineNumber = publishedName
+                print("   → USING PublishedLineName: \(lineNumber)")
             } else {
                 lineNumber = extractLineNumber(from: journey.lineRef.value)
+                print("   → USING Extracted from Ref: \(lineNumber)")
             }
             
             // Parse ISO 8601 timestamp - try expected first, then aimed

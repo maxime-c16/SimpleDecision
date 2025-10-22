@@ -531,9 +531,10 @@ class DecisionEngine: ObservableObject {
         
         print("✅ Selected transit: \(nextDeparture.lineName) to \(nextDeparture.destinationName) at \(nextDeparture.expectedDepartureTime)")
         print("   📝 Selected departure details:")
+        print("      LineRef: '\(nextDeparture.lineRef ?? "no-ref")'")
+        print("      Line Name: '\(nextDeparture.lineName)'")
         let dirStr = nextDeparture.direction ?? "no-direction"
         let platStr = nextDeparture.platformName.isEmpty ? "no-platform" : nextDeparture.platformName
-        print("      Line: '\(nextDeparture.lineName)' (\(nextDeparture.lineRef ?? "no-ref"))")
         print("      Destination: '\(nextDeparture.destinationName)'")
         print("      Direction: '\(dirStr)'")
         print("      Platform: '\(platStr)'")
