@@ -157,6 +157,10 @@ class PRIMClient: ObservableObject {
         let lon = coordinate.longitude
         let lat = coordinate.latitude
         
+        print("📍 DEBUG findNearbyStops:")
+        print("   Input coordinate: lat=\(lat), lon=\(lon)")
+        print("   (raw: \(coordinate))")
+        
         var components = URLComponents(string: "\(navitiaBaseURL)/coords/\(lon);\(lat)/places_nearby")!
         components.queryItems = [
             URLQueryItem(name: "distance", value: String(Int(radius))),
@@ -215,20 +219,38 @@ class PRIMClient: ObservableObject {
                 
                 // Fallback to essential stops only
                 // Verified working with PRIM API on 2025-10-04
+                // Coordinates from official RATP/STIF data (arrets.json)
+                let valdeFontenayCoord = CLLocationCoordinate2D(latitude: 48.85316, longitude: 2.48711)
+                let cimetierCoord = CLLocationCoordinate2D(latitude: 48.86095, longitude: 2.48124)
+                
+                let valdeFontenayDist = self.calculateDistance(from: coordinate, to: valdeFontenayCoord)
+                let cimetierDist = self.calculateDistance(from: coordinate, to: cimetierCoord)
+                
+                print("🔍 DEBUG Distance Calculations:")
+                print("   From user (lat=\(coordinate.latitude), lon=\(coordinate.longitude)):")
+                print("   → Val de Fontenay (48.85316, 2.48711): \(String(format: "%.0f", valdeFontenayDist))m")
+                print("   → Cimetière (48.86095, 2.48124): \(String(format: "%.0f", cimetierDist))m")
+                print("   Cimetière is closer by: \(String(format: "%.0f", abs(valdeFontenayDist - cimetierDist)))m")
+                
                 let fallbackStops = [
                     TransitStop(
                         id: "STIF:StopArea:SP:47900:",  // Val de Fontenay RER A Station (towards Paris)
                         name: "Val de Fontenay RER",
-                        coordinate: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4891),
-                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8527, longitude: 2.4891))
+                        coordinate: valdeFontenayCoord,
+                        distance: valdeFontenayDist
                     ),
                     TransitStop(
                         id: "STIF:StopArea:SP:46543:",  // Cimetière de Vincennes (Bus 122 to VDF, 124 to Château)
                         name: "Cimetière de Vincennes",
-                        coordinate: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121),
-                        distance: self.calculateDistance(from: coordinate, to: CLLocationCoordinate2D(latitude: 48.8430, longitude: 2.4121))
+                        coordinate: cimetierCoord,
+                        distance: cimetierDist
                     )
                 ].sorted { $0.distance < $1.distance }  // Sort by distance to user
+                
+                print("🔍 DEBUG Fallback stops (sorted):")
+                for (idx, stop) in fallbackStops.enumerated() {
+                    print("   [\(idx + 1)] \(stop.name): \(String(format: "%.0f", stop.distance))m")
+                }
                 
                 return Just(fallbackStops)
                     .setFailureType(to: Error.self)
@@ -388,16 +410,6 @@ class PRIMClient: ObservableObject {
         // Collect all unique line refs that need enrichment (filter out nil lineRefs)
         let lineRefsToFetch = Set(response.departures.compactMap { $0.lineRef })
         
-        print("🔍 ENRICHMENT DEBUG:")
-        print("   Found \(lineRefsToFetch.count) unique line refs to enrich")
-        for lineRef in lineRefsToFetch.sorted() {
-            let departuresToFetch = response.departures.filter { $0.lineRef == lineRef }
-            print("   • \(lineRef): \(departuresToFetch.count) departures")
-            if let firstDep = departuresToFetch.first {
-                print("     Current name: '\(firstDep.lineName)'")
-            }
-        }
-        
         if lineRefsToFetch.isEmpty {
             return Just(response)
                 .setFailureType(to: Error.self)
@@ -417,10 +429,8 @@ class PRIMClient: ObservableObject {
             .map { (fetchedNames: [(String, String?)]) -> PRIMResponse in
                 // Create a mapping of lineRef -> publishedName
                 var nameMap: [String: String?] = [:]
-                print("📝 ENRICHMENT MAPPING RESULTS:")
                 for (lineRef, publishedName) in fetchedNames {
                     nameMap[lineRef] = publishedName
-                    print("   \(lineRef) → \(publishedName ?? "nil")")
                 }
                 
                 // Update departures with published names where available
@@ -429,12 +439,7 @@ class PRIMClient: ObservableObject {
                           let publishedName = nameMap[lineRef],
                           let name = publishedName,
                           !name.isEmpty else {
-                        print("⚠️ No enrichment for '\(departure.lineName)' (LineRef: \(departure.lineRef ?? "nil"))")
                         return departure
-                    }
-                    
-                    if departure.lineName != name {
-                        print("✨ ENRICHED: '\(departure.lineName)' → '\(name)' for LineRef \(lineRef)")
                     }
                     
                     return Departure(
@@ -452,13 +457,63 @@ class PRIMClient: ObservableObject {
                     )
                 }
                 
+                // Now refine bus destinations for better catchability analysis
+                let refinedDepartures = self.refineDestinations(enrichedDepartures)
+                
                 return PRIMResponse(
-                    departures: enrichedDepartures,
+                    departures: refinedDepartures,
                     responseTimestamp: response.responseTimestamp
                 )
             }
             .setFailureType(to: Error.self)
             .eraseToAnyPublisher()
+    }
+    
+    /// Refine bus destinations for better catchability calculation
+    /// Maps bus routes to their primary destinations
+    private func refineDestinations(_ departures: [Departure]) -> [Departure] {
+        // Destination refinement mapping: for specific bus lines and API destinations,
+        // map to the refined destination for better user guidance
+        let destinationRefinements: [String: [String: String]] = [
+            "Bus 122": [
+                // Bus 122 destinations mapping
+                "Gallieni": "Val de Fontenay",
+                "Val-de-Fontenay <RER>": "Val de Fontenay",
+            ],
+            "Bus 124": [
+                // Bus 124 destinations mapping
+                "Montreuil-Boissière-Acacia": "Chateau de Vincennes",
+                "Château de Vincennes": "Chateau de Vincennes",
+            ],
+        ]
+        
+        let refinedDepartures = departures.map { departure -> Departure in
+            var refinedDestination = departure.destinationName
+            
+            // Check if this is a bus line that needs destination refinement
+            if let mappings = destinationRefinements[departure.lineName] {
+                // Look for a matching original destination
+                if let refined = mappings[departure.destinationName] {
+                    refinedDestination = refined
+                }
+            }
+            
+            return Departure(
+                lineName: departure.lineName,
+                lineRef: departure.lineRef,
+                destinationName: refinedDestination,
+                destinationRef: departure.destinationRef,
+                expectedDepartureTime: departure.expectedDepartureTime,
+                departureStatus: departure.departureStatus,
+                platformName: departure.platformName,
+                direction: departure.direction,
+                vehicleJourneyRef: departure.vehicleJourneyRef,
+                operatorRef: departure.operatorRef,
+                vehicleAtStop: departure.vehicleAtStop
+            )
+        }
+        
+        return refinedDepartures
     }
 }
 

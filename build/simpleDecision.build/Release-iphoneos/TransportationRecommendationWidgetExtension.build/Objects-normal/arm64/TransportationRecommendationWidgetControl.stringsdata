@@ -1,0 +1,60 @@
+{
+  "source": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Transportation Updates",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 26
+        }
+      },
+      {
+        "comment": "",
+        "key": "Toggle automatic transportation recommendation updates.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-Update Recommendations",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-updates enabled"
+      },
+      {
+        "comment": "",
+        "key": "Auto",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "Manual",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "Toggle recommendation updates",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 45
+        }
+      }
+    ]
+  },
+  "version": 1
+}

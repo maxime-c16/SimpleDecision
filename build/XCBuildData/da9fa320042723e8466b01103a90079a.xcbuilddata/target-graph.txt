@@ -1,0 +1,8 @@
+Target dependency graph (4 targets)
+Target 'simpleDecision' in project 'simpleDecision'
+➜ Explicit dependency on target 'TransportationRecommendationWidgetExtension' in project 'simpleDecision'
+➜ Explicit dependency on target 'Inject' in project 'Inject'
+Target 'Inject' in project 'Inject'
+➜ Explicit dependency on target 'Inject' in project 'Inject'
+Target 'Inject' in project 'Inject' (no dependencies)
+Target 'TransportationRecommendationWidgetExtension' in project 'simpleDecision' (no dependencies)

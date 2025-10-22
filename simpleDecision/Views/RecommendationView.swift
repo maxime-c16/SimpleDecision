@@ -46,7 +46,7 @@ struct RecommendationView: View {
                     Text(recommendation.mode.displayName)
                         .font(.title2)
                         .fontWeight(.bold)
-                        .foregroundColor(Color(recommendation.mode.colorName))
+                        .foregroundColor(recommendation.mode.uiColor)
                     
                     Spacer()
                     
@@ -145,12 +145,12 @@ struct RecommendationView: View {
     private var transportationIcon: some View {
         ZStack {
             Circle()
-                .fill(Color(recommendation.mode.colorName).opacity(0.2))
+                .fill(recommendation.mode.uiColor.opacity(0.2))
                 .frame(width: 60, height: 60)
             
             Image(systemName: recommendation.mode.iconName)
                 .font(.system(size: 28, weight: .medium))
-                .foregroundColor(Color(recommendation.mode.colorName))
+                .foregroundColor(recommendation.mode.uiColor)
         }
     }
     
@@ -242,7 +242,7 @@ struct RecommendationView: View {
                             
                             HStack {
                                 Image(systemName: "clock.fill")
-                                    .foregroundColor(Color(transit.statusColor))
+                                    .foregroundColor(transit.statusUIColor)
                                 Text("\(transit.minutesUntilDeparture) min")
                                     .font(.caption)
                             }
@@ -255,8 +255,8 @@ struct RecommendationView: View {
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color(transit.statusColor).opacity(0.2))
-                            .foregroundColor(Color(transit.statusColor))
+                            .background(transit.statusUIColor.opacity(0.2))
+                            .foregroundColor(transit.statusUIColor)
                             .cornerRadius(6)
                         }
                         
@@ -568,7 +568,7 @@ struct RecommendationView: View {
                             
                             HStack {
                                 Image(systemName: "clock.fill")
-                                    .foregroundColor(Color(alternativeTransit.statusColor))
+                                    .foregroundColor(alternativeTransit.statusUIColor)
                                 Text("\(alternativeTransit.minutesUntilDeparture) min")
                                     .font(.caption)
                             }
@@ -581,8 +581,8 @@ struct RecommendationView: View {
                             }
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color(alternativeTransit.statusColor).opacity(0.2))
-                            .foregroundColor(Color(alternativeTransit.statusColor))
+                            .background(alternativeTransit.statusUIColor.opacity(0.2))
+                            .foregroundColor(alternativeTransit.statusUIColor)
                             .cornerRadius(6)
                         }
                         
@@ -958,7 +958,7 @@ struct RecommendationView: View {
             .fill(.regularMaterial)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color(recommendation.mode.colorName).opacity(0.3), lineWidth: 1)
+                    .stroke(recommendation.mode.uiColor.opacity(0.3), lineWidth: 1)
             )
     }
     

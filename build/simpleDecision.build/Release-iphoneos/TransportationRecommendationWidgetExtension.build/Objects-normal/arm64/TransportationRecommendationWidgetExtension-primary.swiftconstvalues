@@ -1,0 +1,206 @@
+[
+  {
+    "typeName": "TransportationRecommendationWidgetExtension.ToggleRecommendationUpdatesIntent",
+    "mangledTypeName": "43TransportationRecommendationWidgetExtension06ToggleB13UpdatesIntentV",
+    "kind": "struct",
+    "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+    "line": 44,
+    "conformances": [
+      "AppIntents.SetValueIntent",
+      "AppIntents.AppIntent",
+      "AppIntents.PersistentlyIdentifiable",
+      "AppIntents._SupportsAppDependencies",
+      "Swift.Sendable",
+      "Swift.SendableMetatype"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "AppIntents.SetValueIntent",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents.AppIntent",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents.PersistentlyIdentifiable",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      },
+      {
+        "protocolName": "AppIntents._SupportsAppDependencies",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      },
+      {
+        "protocolName": "Swift.SendableMetatype",
+        "conformanceDefiningModule": "TransportationRecommendationWidgetExtension"
+      }
+    ],
+    "associatedTypeAliases": [
+      {
+        "typeAliasName": "ValueType",
+        "substitutedTypeName": "Swift.Bool",
+        "substitutedMangledTypeName": "Sb"
+      },
+      {
+        "typeAliasName": "PerformResult",
+        "substitutedTypeName": "some AppIntents.IntentResult",
+        "substitutedMangledTypeName": "43TransportationRecommendationWidgetExtension06ToggleB13UpdatesIntentV7performQryYaKFQOy_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.IntentResult"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      },
+      {
+        "typeAliasName": "SummaryContent",
+        "substitutedTypeName": "some AppIntents.ParameterSummary",
+        "substitutedMangledTypeName": "10AppIntents0A6IntentPAAE16parameterSummaryQrvpZQOy43TransportationRecommendationWidgetExtension06Toggleg7UpdatesC0V_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ParameterSummary"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      }
+    ],
+    "properties": [
+      {
+        "label": "_value",
+        "type": "AppIntents.IntentParameter<Swift.Bool>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "false",
+        "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+        "line": 48,
+        "valueKind": "InitCall",
+        "value": {
+          "type": "AppIntents.IntentParameter<Swift.Bool>",
+          "arguments": [
+            {
+              "label": "title",
+              "type": "Foundation.LocalizedStringResource",
+              "valueKind": "RawLiteral",
+              "value": "Auto-updates enabled"
+            },
+            {
+              "label": "description",
+              "type": "Swift.Optional<Foundation.LocalizedStringResource>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "default",
+              "type": "Swift.Optional<Swift.Bool>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "displayName",
+              "type": "Swift.Optional<Swift.Bool.IntentDisplayName>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "requestValueDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "inputConnectionBehavior",
+              "type": "AppIntents.InputConnectionBehavior",
+              "valueKind": "Runtime"
+            }
+          ]
+        }
+      },
+      {
+        "label": "title",
+        "type": "Foundation.LocalizedStringResource",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+        "line": 45,
+        "valueKind": "RawLiteral",
+        "value": "Toggle recommendation updates"
+      },
+      {
+        "label": "value",
+        "type": "Swift.Bool",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+        "line": 48,
+        "valueKind": "InitCall",
+        "value": {
+          "type": "AppIntents.IntentParameter<Swift.Bool>",
+          "arguments": [
+            {
+              "label": "title",
+              "type": "Foundation.LocalizedStringResource",
+              "valueKind": "RawLiteral",
+              "value": "Auto-updates enabled"
+            },
+            {
+              "label": "description",
+              "type": "Swift.Optional<Foundation.LocalizedStringResource>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "default",
+              "type": "Swift.Optional<Swift.Bool>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "displayName",
+              "type": "Swift.Optional<Swift.Bool.IntentDisplayName>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "requestValueDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "inputConnectionBehavior",
+              "type": "AppIntents.InputConnectionBehavior",
+              "valueKind": "Runtime"
+            }
+          ]
+        },
+        "propertyWrappers": [
+          {
+            "type": "AppIntents.IntentParameter",
+            "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+            "line": 47,
+            "arguments": [
+              {
+                "label": "title",
+                "type": "Foundation.LocalizedStringResource",
+                "valueKind": "RawLiteral",
+                "value": "Auto-updates enabled"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "$value",
+        "type": "AppIntents.IntentParameter<Swift.Bool>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "file": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift",
+        "line": 48,
+        "valueKind": "Runtime"
+      }
+    ]
+  }
+]

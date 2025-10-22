@@ -1,0 +1,56 @@
+{
+  "source": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidget.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 62
+        }
+      },
+      {
+        "comment": "",
+        "key": "Next %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%lldm)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 83
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 102
+        }
+      },
+      {
+        "comment": "",
+        "key": "Transportation Recommendation",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 126
+        }
+      },
+      {
+        "comment": "",
+        "key": "Shows your recommended transportation mode with ETA.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 127
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -237,7 +237,7 @@ class DecisionEngine: ObservableObject {
                     return stop
                 }
                 
-                guard let nearestStop = validStops.first else {
+                guard !validStops.isEmpty else {
                     // No valid transit stops available, use mock transit data
                     // This ensures users can still see bus schedule structure
                     print("⚠️ No valid transit stops found, using mock transit data")
@@ -246,36 +246,74 @@ class DecisionEngine: ObservableObject {
                         .eraseToAnyPublisher()
                 }
                 
-                print("✅ Using stop: \(nearestStop.name) (\(nearestStop.id)) at \(String(format: "%.0f", nearestStop.distance))m")
+                // Sort stops by distance (closest first)
+                let sortedStops = validStops.sorted { $0.distance < $1.distance }
                 
-                // Get departure times for nearest stop
-                return self.primClient.fetchDepartures(for: nearestStop.id)
-                    .map { primResponse in
-                        print("📊 PRIM API returned \(primResponse.departures.count) departures")
+                print("🔍 DEBUG: Found \(sortedStops.count) valid stops (sorted by distance):")
+                for (idx, stop) in sortedStops.enumerated() {
+                    print("   [\(idx+1)] \(stop.name) - \(String(format: "%.0f", stop.distance))m away")
+                }
+                
+                // Fetch departures from all nearby stops in parallel
+                let departurePublishers = sortedStops.map { stop -> AnyPublisher<(TransitStop, PRIMResponse), Error> in
+                    self.primClient.fetchDepartures(for: stop.id)
+                        .map { primResponse in (stop, primResponse) }
+                        .eraseToAnyPublisher()
+                }
+                
+                return Publishers.MergeMany(departurePublishers)
+                    .collect()
+                    .map { results -> Recommendation in
+                        print("🔍 DEBUG: Fetched departures from \(results.count) stops")
                         
-                        // Debug: Log ALL departure details
-                        print("🔍 RAW DEPARTURES FROM PRIM:")
-                        for (idx, dep) in primResponse.departures.enumerated() {
-                            let directionStr = dep.direction ?? "no-direction"
-                            let platformStr = dep.platformName.isEmpty ? "no-platform" : dep.platformName
-                            print("   [\(idx + 1)] Line: '\(dep.lineName)' (\(dep.lineRef ?? "no-ref"))")
-                            print("       → Destination: '\(dep.destinationName)'")
-                            print("       → Direction: '\(directionStr)'")
-                            print("       → Platform: '\(platformStr)'")
-                            print("       → Departs: \(dep.expectedDepartureTime) (in \(dep.minutesUntilDeparture) min)")
-                            print("       → Status: \(dep.departureStatus)")
+                        // Sort results by distance (matches sortedStops order)
+                        let sortedResults = results.sorted { $0.0.distance < $1.0.distance }
+                        
+                        // Combine all departures from all stops
+                        var mergedDepartures: [Departure] = []
+                        var nearestStop: TransitStop?
+                        
+                        for (stop, primResponse) in sortedResults {
+                            print("   • \(stop.name): \(primResponse.departures.count) departures")
+                            mergedDepartures.append(contentsOf: primResponse.departures)
+                            
+                            // Track the nearest stop (first one after sorting)
+                            if nearestStop == nil {
+                                nearestStop = stop
+                            }
+                            
+                            // Debug: Show first 5 departures per stop
+                            for (idx, dep) in primResponse.departures.prefix(5).enumerated() {
+                                print("      [\(idx+1)] \(dep.lineName) → \(dep.destinationName) @ \(dep.expectedDepartureTime)")
+                            }
                         }
                         
-                        return self.createTransitRecommendation(
-                            primResponse: primResponse,
-                            nearestStop: nearestStop,
-                            totalDistance: distance,
-                            weather: weather
-                        )
+                        // Sort merged departures by time
+                        mergedDepartures.sort { $0.expectedDepartureTime < $1.expectedDepartureTime }
+                        
+                        // Filter out unwanted bus lines (e.g., Bus 127)
+                        let allowedLines = Set(["RER A", "RER E", "Bus 122", "Bus 124", "N34"])
+                        let filteredDepartures = mergedDepartures.filter { departure in
+                            allowedLines.contains(departure.lineName)
+                        }
+                        
+                        print("📊 Combined \(mergedDepartures.count) departures, filtered to \(filteredDepartures.count) (removed unwanted lines)")
+                        
+                        // Create recommendation using filtered departures from all stops
+                        if let primaryStop = nearestStop {
+                            print("✅ Using nearest stop: \(primaryStop.name)")
+                            return self.createTransitRecommendation(
+                                primResponse: PRIMResponse(departures: filteredDepartures, responseTimestamp: Date()),
+                                nearestStop: primaryStop,
+                                totalDistance: distance,
+                                weather: weather
+                            )
+                        } else {
+                            return self.createMockTransitRecommendation(distance: distance, weather: weather)
+                        }
                     }
                     .catch { error -> AnyPublisher<Recommendation, Error> in
-                        // If departure fetching fails, use mock data instead of propagating error
-                        print("❌ fetchDepartures failed: \(error.localizedDescription), using mock transit data")
+                        print("❌ fetchDepartures from stops failed: \(error.localizedDescription), using mock transit data")
                         return Just(self.createMockTransitRecommendation(distance: distance, weather: weather))
                             .setFailureType(to: Error.self)
                             .eraseToAnyPublisher()

@@ -1,0 +1,46 @@
+{
+  "" : {
+    "const-values" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.swiftconstvalues",
+    "dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.d",
+    "diagnostics" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.dia",
+    "emit-module-dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary-emit-module.dia",
+    "pch" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.swiftdeps"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/SharedModels.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/SharedModels.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/SharedModels.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/SharedModels.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidget.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidget.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidget.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidget.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetBundle.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetBundle.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetBundle.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetBundle.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetControl.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetControl.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetControl.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetControl.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetLiveActivity.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetLiveActivity.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetLiveActivity.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetLiveActivity.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/Views/LiveActivityComponents.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/LiveActivityComponents.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/LiveActivityComponents.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/LiveActivityComponents.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

@@ -7,6 +7,7 @@
 
 import Foundation
 import ActivityKit
+import SwiftUI
 
 // MARK: - Live Activity Attributes
 
@@ -160,13 +161,13 @@ public struct TransitDetails: Codable, Equatable, Hashable {
     }
     
     /// Status color for UI
-    public var statusColor: String {
+    public var statusUIColor: Color {
         switch departureStatus.lowercased() {
-        case "ontime": return "green"
-        case "delayed": return "orange"
-        case "early": return "blue"
-        case "cancelled": return "red"
-        default: return "gray"
+        case "ontime": return .green
+        case "delayed": return .orange
+        case "early": return .blue
+        case "cancelled": return .red
+        default: return .gray
         }
     }
     
@@ -332,11 +333,11 @@ public enum TransportationMode: String, Codable, CaseIterable {
     }
     
     /// Color for UI display
-    public var colorName: String {
+    public var uiColor: Color {
         switch self {
-        case .walk: return "green"
-        case .bus: return "blue"
-        case .tie: return "orange"
+        case .walk: return .green
+        case .bus: return .blue
+        case .tie: return .orange
         }
     }
 }

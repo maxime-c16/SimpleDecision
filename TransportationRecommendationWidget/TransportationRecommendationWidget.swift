@@ -50,7 +50,7 @@ struct TransportationRecommendationWidgetEntryView : View {
             HStack {
                 Image(systemName: entry.recommendation.mode.iconName)
                     .font(.title2)
-                    .foregroundColor(Color(entry.recommendation.mode.colorName))
+                    .foregroundColor(entry.recommendation.mode.uiColor)
                 
                 Text(entry.recommendation.mode.displayName)
                     .font(.headline)

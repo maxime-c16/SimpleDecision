@@ -1,0 +1,31 @@
+{
+  "" : {
+    "const-values" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary.swiftconstvalues",
+    "dependencies" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary.d",
+    "diagnostics" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary.dia",
+    "emit-module-dependencies" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary-emit-module.dia",
+    "pch" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Inject-primary.swiftdeps"
+  },
+  "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/Sources/Inject/InjectConfiguration.swift" : {
+    "index-unit-output-path" : "/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/InjectConfiguration.o",
+    "llvm-bc" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/InjectConfiguration.bc",
+    "object" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/InjectConfiguration.o"
+  },
+  "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/Sources/Inject/Integrations/Hosts.swift" : {
+    "index-unit-output-path" : "/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Hosts.o",
+    "llvm-bc" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Hosts.bc",
+    "object" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/Hosts.o"
+  },
+  "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/Sources/Inject/Integrations/KitFrameworks.swift" : {
+    "index-unit-output-path" : "/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/KitFrameworks.o",
+    "llvm-bc" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/KitFrameworks.bc",
+    "object" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/KitFrameworks.o"
+  },
+  "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/Sources/Inject/Integrations/SwiftUI.swift" : {
+    "index-unit-output-path" : "/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/SwiftUI.o",
+    "llvm-bc" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/SwiftUI.bc",
+    "object" : "/Users/baki/Library/Developer/Xcode/DerivedData/simpleDecision-dfhkwfrbtdshodbqfmfhskkfrdou/SourcePackages/checkouts/Inject/build/Inject.build/Release-iphoneos/Inject.build/Objects-normal/arm64/SwiftUI.o"
+  }
+}

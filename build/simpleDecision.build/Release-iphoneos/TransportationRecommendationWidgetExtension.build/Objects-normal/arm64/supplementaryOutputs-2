@@ -1,0 +1,12 @@
+{
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/Views/LiveActivityComponents.swift" : {
+    "abi-baseline-json" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension.abi.json",
+    "const-values" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.swiftconstvalues",
+    "dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.d",
+    "diagnostics" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-primary.dia",
+    "objc-header" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension-Swift.h",
+    "swiftdoc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension.swiftdoc",
+    "swiftmodule" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension.swiftmodule",
+    "swiftsourceinfo" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/TransportationRecommendationWidgetExtension.build/Objects-normal/arm64/TransportationRecommendationWidgetExtension.swiftsourceinfo"
+  }
+}

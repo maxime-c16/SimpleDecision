@@ -45,7 +45,7 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                 RecommendationIconView(mode: context.state.recommendation.mode)
             }
             .widgetURL(URL(string: "simpledecision://recommendation"))
-            .keylineTint(Color(context.state.recommendation.mode.colorName))
+            .keylineTint(context.state.recommendation.mode.uiColor)
         }
     }
 }
@@ -170,7 +170,7 @@ struct RecommendationLockScreenView: View {
             Spacer()
         }
         .padding(16)
-        .activityBackgroundTint(Color(context.state.recommendation.mode.colorName).opacity(0.1))
+        .activityBackgroundTint(context.state.recommendation.mode.uiColor.opacity(0.1))
         .activitySystemActionForegroundColor(Color.primary)
     }
 }
@@ -182,7 +182,7 @@ struct RecommendationIconView: View {
     
     var body: some View {
         Image(systemName: mode.iconName)
-            .foregroundColor(Color(mode.colorName))
+            .foregroundColor(mode.uiColor)
             .font(.system(size: 16, weight: .semibold))
     }
 }

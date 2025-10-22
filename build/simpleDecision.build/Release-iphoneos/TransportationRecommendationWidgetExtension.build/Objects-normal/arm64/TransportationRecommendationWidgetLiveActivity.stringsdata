@@ -1,0 +1,160 @@
+{
+  "source": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/TransportationRecommendationWidgetLiveActivity.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "Recommended: %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 66
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 97
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 99
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alternative:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 110
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm walk",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 127
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm wait",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 129
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm total",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "Confidence: %lld%%",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 159
+        }
+      },
+      {
+        "comment": "",
+        "key": "Updated: %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 162
+        }
+      },
+      {
+        "comment": "",
+        "key": "• %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 164
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 196
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 200
+        }
+      },
+      {
+        "comment": "",
+        "key": "Alt:",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 235
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 249
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 259
+        }
+      },
+      {
+        "comment": "",
+        "key": "Updated: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 275
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 292
+        }
+      }
+    ]
+  },
+  "version": 1
+}

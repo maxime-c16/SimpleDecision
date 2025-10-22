@@ -17,7 +17,7 @@ struct ModeIconView: View {
     
     var body: some View {
         Image(systemName: mode.iconName)
-            .foregroundColor(Color(mode.colorName))
+            .foregroundColor(mode.uiColor)
             .font(.system(size: size, weight: .semibold))
     }
 }
@@ -208,7 +208,7 @@ struct RecommendationSummaryView: View {
                 Text("\(primaryETA)")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(Color(recommendation.mode.colorName))
+                    .foregroundColor(recommendation.mode.uiColor)
             }
         }
     }

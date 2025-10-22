@@ -1,0 +1,116 @@
+{
+  "" : {
+    "const-values" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary.swiftconstvalues",
+    "dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary.d",
+    "diagnostics" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary.dia",
+    "emit-module-dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary-emit-module.dia",
+    "pch" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecision-primary.swiftdeps"
+  },
+  "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/SharedModels.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SharedModels.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SharedModels.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SharedModels.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/ContentView.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Models/AppSettings.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AppSettings.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AppSettings.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AppSettings.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Models/LocationData.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationData.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationData.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationData.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Models/PRIMResponse.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMResponse.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMResponse.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMResponse.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Models/SIRIResponse.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SIRIResponse.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SIRIResponse.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SIRIResponse.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/ActivityManager.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ActivityManager.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ActivityManager.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/ActivityManager.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/BackgroundScheduler.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/BackgroundScheduler.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/BackgroundScheduler.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/BackgroundScheduler.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/DecisionEngine.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DecisionEngine.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DecisionEngine.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DecisionEngine.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/LineInfoService.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LineInfoService.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LineInfoService.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LineInfoService.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/LocationService.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationService.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationService.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/LocationService.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Services/PRIMClient.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMClient.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMClient.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/PRIMClient.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/ViewModels/DestinationViewModel.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DestinationViewModel.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DestinationViewModel.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DestinationViewModel.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/ViewModels/MainViewModel.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/MainViewModel.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/MainViewModel.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/MainViewModel.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/ViewModels/RecommendationViewModel.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationViewModel.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationViewModel.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationViewModel.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/ViewModels/SettingsViewModel.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SettingsViewModel.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SettingsViewModel.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/SettingsViewModel.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Views/AddressSearchView.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AddressSearchView.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AddressSearchView.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/AddressSearchView.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Views/DebugControlsView.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DebugControlsView.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DebugControlsView.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/DebugControlsView.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/Views/RecommendationView.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationView.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationView.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/RecommendationView.o"
+  },
+  "/Users/baki/max_perso/simpleDecision/simpleDecision/simpleDecisionApp.swift" : {
+    "index-unit-output-path" : "/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecisionApp.o",
+    "llvm-bc" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecisionApp.bc",
+    "object" : "/Users/baki/max_perso/simpleDecision/build/simpleDecision.build/Release-iphoneos/simpleDecision.build/Objects-normal/arm64/simpleDecisionApp.o"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "source": "/Users/baki/max_perso/simpleDecision/TransportationRecommendationWidget/Views/LiveActivityComponents.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "%lldm",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld%%",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 125
+        }
+      },
+      {
+        "comment": "",
+        "key": "Updated: %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld min",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 192
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-updates enabled",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 244
+        }
+      }
+    ]
+  },
+  "version": 1
+}
