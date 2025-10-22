@@ -71,13 +71,13 @@ struct MonitoredStopVisit: Codable {
 // MARK: - Monitored Vehicle Journey
 
 struct MonitoredVehicleJourney: Codable {
-    let lineRef: RefValue
-    let operatorRef: RefValue?
+    let lineRef: RefValue  // Always has a value
+    let operatorRef: OptionalRefValue?  // May be empty {} object
     let publishedLineName: [TextValue]?
     let directionName: [TextValue]?
-    let directionRef: RefValue?
+    let directionRef: OptionalRefValue?  // May be empty
     let destinationName: [TextValue]?
-    let destinationRef: RefValue?
+    let destinationRef: OptionalRefValue?  // May be empty
     let destinationShortName: [TextValue]?
     let vehicleJourneyName: [TextValue]?
     let journeyNote: [TextValue]?
@@ -126,8 +126,14 @@ struct MonitoredCall: Codable {
 
 // MARK: - Supporting Structures
 
+/// Reference value that MUST have a value (like LineRef)
 struct RefValue: Codable {
     let value: String
+}
+
+/// Optional reference value that MAY be empty {} (like OperatorRef for some lines)
+struct OptionalRefValue: Codable {
+    let value: String?
 }
 
 struct TextValue: Codable {
@@ -135,7 +141,7 @@ struct TextValue: Codable {
 }
 
 struct FramedVehicleJourneyRef: Codable {
-    let dataFrameRef: RefValue?
+    let dataFrameRef: OptionalRefValue?  // May be empty
     let datedVehicleJourneyRef: String?
     
     enum CodingKeys: String, CodingKey {
@@ -145,7 +151,7 @@ struct FramedVehicleJourneyRef: Codable {
 }
 
 struct TrainNumbers: Codable {
-    let trainNumberRef: [String]?
+    let trainNumberRef: [RefValue]?  // Array of {value: "train_number"}
     
     enum CodingKeys: String, CodingKey {
         case trainNumberRef = "TrainNumberRef"
@@ -158,10 +164,11 @@ extension SIRIResponse {
     /// Convert SIRI response to PRIMResponse for app use
     func toPRIMResponse() -> PRIMResponse {
         guard let delivery = siri.serviceDelivery.stopMonitoringDelivery.first else {
+            print("❌ No StopMonitoringDelivery found in response!")
             return PRIMResponse(departures: [], responseTimestamp: Date())
         }
         
-        print("🔍 SIRI Response Parsing: \(delivery.monitoredStopVisit.count) visits")
+        var parseFailures: [String: Int] = [:]
         
         let departures = delivery.monitoredStopVisit.compactMap { visit -> Departure? in
             let journey = visit.monitoredVehicleJourney
@@ -170,19 +177,25 @@ extension SIRIResponse {
             let lineNumber: String
             if let publishedName = journey.publishedLineName?.first?.value {
                 lineNumber = publishedName
-                print("   📍 Using PublishedLineName: '\(lineNumber)'")
             } else {
                 lineNumber = extractLineNumber(from: journey.lineRef.value)
-                print("   📍 Extracted from LineRef '\(journey.lineRef.value)': '\(lineNumber)'")
             }
             
             // Parse ISO 8601 timestamp - try expected first, then aimed
             let departureTimeString = journey.monitoredCall.expectedDepartureTime 
                 ?? journey.monitoredCall.aimedDepartureTime
             
-            guard let departureTimeStr = departureTimeString,
-                  let departureTime = ISO8601DateFormatter().date(from: departureTimeStr) else {
-                print("   ⚠️ Failed to parse departure time (expected and aimed both nil or invalid)")
+            guard let departureTimeStr = departureTimeString else {
+                parseFailures["no_time"] = (parseFailures["no_time"] ?? 0) + 1
+                return nil
+            }
+            
+            // Configure ISO8601DateFormatter to handle fractional seconds
+            let dateFormatter = ISO8601DateFormatter()
+            dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            
+            guard let departureTime = dateFormatter.date(from: departureTimeStr) else {
+                parseFailures["invalid_time_format"] = (parseFailures["invalid_time_format"] ?? 0) + 1
                 return nil
             }
             
@@ -205,10 +218,6 @@ extension SIRIResponse {
                 direction = String(direction.dropFirst("Direction ".count))
             }
             
-            print("   ✅ Parsed: Line '\(lineNumber)' → '\(destinationName)' (dir: '\(direction)') @ \(departureTime)")
-            print("      Stop: '\(stopName)'")
-
-            
             return Departure(
                 lineName: lineNumber,
                 lineRef: journey.lineRef.value,
@@ -227,7 +236,13 @@ extension SIRIResponse {
         // Parse response timestamp
         let timestamp = ISO8601DateFormatter().date(from: siri.serviceDelivery.responseTimestamp) ?? Date()
         
-        print("✅ SIRI Parsing complete: \(departures.count) valid departures")
+        print("✅ SIRI Parsing complete: \(departures.count)/\(delivery.monitoredStopVisit.count) valid departures")
+        if !parseFailures.isEmpty {
+            print("❌ Parse failures:")
+            for (reason, count) in parseFailures.sorted(by: { $0.value > $1.value }) {
+                print("   • \(reason): \(count) departures")
+            }
+        }
         return PRIMResponse(departures: departures, responseTimestamp: timestamp)
     }
     

@@ -112,6 +112,29 @@ class PRIMClient: ObservableObject {
                 }
             )
             .catch { [weak self] error -> AnyPublisher<PRIMResponse, Error> in
+                print("❌❌❌ PRIM API PIPELINE ERROR: \(error)")
+                print("❌❌❌ Error details: \(error.localizedDescription)")
+                if let decodingError = error as? DecodingError {
+                    print("❌❌❌ DECODING ERROR DETECTED:")
+                    switch decodingError {
+                    case .keyNotFound(let key, let context):
+                        print("   Key '\(key.stringValue)' not found: \(context.debugDescription)")
+                        print("   codingPath: \(context.codingPath)")
+                    case .valueNotFound(let type, let context):
+                        print("   Value of type '\(type)' not found: \(context.debugDescription)")
+                        print("   codingPath: \(context.codingPath)")
+                    case .typeMismatch(let type, let context):
+                        print("   Type mismatch for '\(type)': \(context.debugDescription)")
+                        print("   codingPath: \(context.codingPath)")
+                    case .dataCorrupted(let context):
+                        print("   Data corrupted: \(context.debugDescription)")
+                        print("   codingPath: \(context.codingPath)")
+                    @unknown default:
+                        print("   Unknown decoding error")
+                    }
+                }
+                print("❌❌❌ FALLING BACK TO MOCK DATA")
+                
                 DispatchQueue.main.async {
                     self?.lastError = error.localizedDescription
                 }
@@ -365,8 +388,6 @@ class PRIMClient: ObservableObject {
         // Collect all unique line refs that need enrichment (filter out nil lineRefs)
         let lineRefsToFetch = Set(response.departures.compactMap { $0.lineRef })
         
-        print("🔍 Enrichment: Found \(lineRefsToFetch.count) unique line refs to fetch: \(lineRefsToFetch)")
-        
         if lineRefsToFetch.isEmpty {
             return Just(response)
                 .setFailureType(to: Error.self)
@@ -376,9 +397,6 @@ class PRIMClient: ObservableObject {
         // Fetch published names for all unique line refs in parallel
         let publishers = lineRefsToFetch.map { lineRef -> AnyPublisher<(String, String?), Never> in
             LineInfoService.shared.fetchPublishedLineName(for: lineRef)
-                .handleEvents(receiveOutput: { publishedName in
-                    print("✅ Fetched name for \(lineRef): \(publishedName ?? "nil")")
-                })
                 .replaceError(with: nil)
                 .map { publishedName in (lineRef, publishedName) }
                 .eraseToAnyPublisher()
@@ -391,7 +409,6 @@ class PRIMClient: ObservableObject {
                 var nameMap: [String: String?] = [:]
                 for (lineRef, publishedName) in fetchedNames {
                     nameMap[lineRef] = publishedName
-                    print("📝 Mapping \(lineRef) -> \(publishedName ?? "nil")")
                 }
                 
                 // Update departures with published names where available
@@ -400,11 +417,8 @@ class PRIMClient: ObservableObject {
                           let publishedName = nameMap[lineRef],
                           let name = publishedName,
                           !name.isEmpty else {
-                        print("⚠️ No published name for departure: \(departure.lineName) (lineRef: \(departure.lineRef ?? "nil"))")
                         return departure
                     }
-                    
-                    print("✨ Enriched \(departure.lineName) -> \(name) for line \(lineRef)")
                     
                     return Departure(
                         lineName: name,
@@ -420,8 +434,6 @@ class PRIMClient: ObservableObject {
                         vehicleAtStop: departure.vehicleAtStop
                     )
                 }
-                
-                print("🎯 Enrichment complete: \(enrichedDepartures.count) departures processed")
                 
                 return PRIMResponse(
                     departures: enrichedDepartures,

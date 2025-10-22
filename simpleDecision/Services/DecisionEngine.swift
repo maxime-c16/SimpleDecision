@@ -505,14 +505,7 @@ class DecisionEngine: ObservableObject {
         let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60 + safetyBufferSeconds)
         
         print("⏱️ Walk to stop: \(String(format: "%.1f", walkToStopMinutes)) min (\(String(format: "%.0f", nearestStop.distance))m at \(String(format: "%.1f", walkingSpeed))m/s)")
-        print("🚶 User arrival at stop (with 15s buffer): \(DateFormatter.localizedString(from: arrivalTimeAtStop, dateStyle: .none, timeStyle: .short))")
-        
-        // Log all departure times for debugging
-        for (index, departure) in filteredDepartures.enumerated() {
-            let departureTimeStr = DateFormatter.localizedString(from: departure.expectedDepartureTime, dateStyle: .none, timeStyle: .short)
-            let isCatchable = arrivalTimeAtStop <= departure.expectedDepartureTime
-            print("   \(index + 1). \(departure.lineName) @ \(departureTimeStr) - \(isCatchable ? "✅ Catchable" : "❌ Too soon") (in \(departure.minutesUntilDeparture) min)")
-        }
+        print("🚶 User arrival at stop: \(DateFormatter.localizedString(from: arrivalTimeAtStop, dateStyle: .none, timeStyle: .short))")
         
         // Find first catchable departure - look ahead as far as needed
         // Remove 120-minute limit since we have full schedule from PRIM API
