@@ -26,212 +26,241 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                 // MARK: - Expanded Regions
                 
                 DynamicIslandExpandedRegion(.leading) {
-                    // Mode icon with safety badge overlay
-                    ZStack(alignment: .topTrailing) {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        context.state.recommendation.mode.uiColor.opacity(0.3),
-                                        context.state.recommendation.mode.uiColor.opacity(0.1)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                    // Walk route: Icon + RER wait time
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: context.state.recommendation.mode == .walk ?
+                                            [Color.green.opacity(0.35), Color.green.opacity(0.2)] :
+                                            [Color.gray.opacity(0.2), Color.gray.opacity(0.12)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(width: 36, height: 36)
+                                .frame(width: 44, height: 44)
+                            
+                            Image(systemName: "figure.walk")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(
+                                    context.state.recommendation.mode == .walk ? .green : .secondary
+                                )
+                        }
                         
-                        Image(systemName: context.state.recommendation.mode.iconName)
-                            .foregroundColor(context.state.recommendation.mode.uiColor)
-                            .font(.system(size: 16, weight: .semibold))
-                        
-                        // Phase 2: Safety badge
-                        if let safetyLevel = context.state.recommendation.safetyLevel {
-                            Text(safetyEmoji(for: safetyLevel))
-                                .font(.system(size: 10))
-                                .offset(x: 2, y: -2)
+                        // RER wait time
+                        if let rerWait = calculateRERWaitTime(recommendation: context.state.recommendation) {
+                            VStack(spacing: 1) {
+                                Text("\(rerWait)")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(
+                                        context.state.recommendation.mode == .walk ? .primary : .secondary
+                                    )
+                                Text("min")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
                 
                 DynamicIslandExpandedRegion(.trailing) {
-                    // Phase 2: ETA with urgency indicators
-                    VStack(alignment: .trailing, spacing: 2) {
-                        if let eta = context.state.recommendation.primaryETA {
-                            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                                if let urgency = context.state.recommendation.urgencyScore {
-                                    Text(urgencyEmoji(for: urgency))
-                                        .font(.caption2)
-                                }
-                                Text("\(eta)")
-                                    .font(.title3)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(
-                                        context.state.recommendation.urgencyScore.map { urgencyColor(for: $0) } ?? .primary
+                    // Bus route: Icon + bus wait time
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: context.state.recommendation.mode == .bus ?
+                                            [Color.blue.opacity(0.35), Color.blue.opacity(0.2)] :
+                                            [Color.gray.opacity(0.2), Color.gray.opacity(0.12)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
                                     )
-                                Text("min")
-                                    .font(.caption2)
-                            }
+                                )
+                                .frame(width: 44, height: 44)
+                            
+                            Image(systemName: "bus.fill")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(
+                                    context.state.recommendation.mode == .bus ? .blue : .secondary
+                                )
                         }
                         
-                        // Phase 2: Buffer with safety indicator
-                        if let buffer = context.state.recommendation.bufferMinutes {
-                            HStack(spacing: 3) {
-                                if let safety = context.state.recommendation.safetyLevel {
-                                    Text(safetyEmoji(for: safety))
-                                        .font(.system(size: 9))
-                                }
-                                Text("⏱️\(buffer)m")
-                                    .font(.caption2)
-                                    .fontWeight(.medium)
+                        // Bus wait time
+                        if let busWait = calculateBusWaitAtStop(recommendation: context.state.recommendation) {
+                            VStack(spacing: 1) {
+                                Text("\(busWait)")
+                                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                                    .foregroundColor(
+                                        context.state.recommendation.mode == .bus ? .primary : .secondary
+                                    )
+                                Text("min")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(.secondary)
                             }
-                            .foregroundColor(buffer < 2 ? .red : buffer < 4 ? .orange : .green)
                         }
                     }
                 }
                 
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.recommendation.mode.displayName)
-                        .font(.subheadline)
-                        .fontWeight(.bold)
+                    // Urgency status text
+                    if let urgency = context.state.recommendation.urgencyScore {
+                        VStack(spacing: 2) {
+                            Text(urgencyEmoji(for: urgency))
+                                .font(.system(size: 16))
+                            Text(urgencyText(for: urgency))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(urgencyColor(for: urgency))
+                        }
+                    } else {
+                        Text(context.state.recommendation.mode.displayName)
+                            .font(.system(size: 14, weight: .semibold))
+                    }
                 }
                 
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 8) {
-                        // Dual-route comparison with wait times
-                        HStack(spacing: 12) {
-                            // Walk + RER route
-                            HStack(spacing: 6) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            context.state.recommendation.mode == TransportationMode.walk ?
-                                            Color.green.opacity(0.2) : Color.gray.opacity(0.1)
-                                        )
-                                        .frame(width: 28, height: 28)
-                                    
-                                    Image(systemName: "figure.walk")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(
-                                            context.state.recommendation.mode == TransportationMode.walk ?
-                                            .green : .secondary
-                                        )
-                                }
+                    VStack(spacing: 12) {
+                        // Unified dual-route comparison bar
+                        HStack(spacing: 0) {
+                            // Walk route option
+                            HStack(spacing: 8) {
+                                Image(systemName: "figure.walk")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(
+                                        context.state.recommendation.mode == .walk ? .green : .secondary.opacity(0.6)
+                                    )
+                                    .frame(width: 24)
                                 
-                                VStack(alignment: .leading, spacing: 1) {
-                                    if let rerWait = calculateRERWaitTime(recommendation: context.state.recommendation) {
-                                        HStack(spacing: 2) {
+                                if let rerWait = calculateRERWaitTime(recommendation: context.state.recommendation) {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        HStack(alignment: .firstTextBaseline, spacing: 2) {
                                             Text("\(rerWait)")
-                                                .font(.system(size: 14, weight: .bold))
-                                                .foregroundColor(
-                                                    context.state.recommendation.mode == TransportationMode.walk ?
-                                                    .primary : .secondary
-                                                )
+                                                .font(.system(size: 18, weight: .bold, design: .rounded))
                                             Text("min")
-                                                .font(.system(size: 9))
+                                                .font(.system(size: 10, weight: .medium))
                                                 .foregroundColor(.secondary)
                                         }
+                                        .foregroundColor(
+                                            context.state.recommendation.mode == .walk ? .primary : .secondary.opacity(0.7)
+                                        )
+                                        
                                         Text("RER wait")
-                                            .font(.system(size: 8))
-                                            .foregroundColor(.secondary)
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundColor(.secondary.opacity(0.7))
                                     }
                                 }
                                 
-                                if context.state.recommendation.mode == TransportationMode.walk {
+                                if context.state.recommendation.mode == .walk {
+                                    Spacer()
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.green)
                                 }
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
                             .background(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(
-                                        context.state.recommendation.mode == TransportationMode.walk ?
-                                        Color.green.opacity(0.12) : Color.gray.opacity(0.05)
+                                        context.state.recommendation.mode == .walk ?
+                                        Color.green.opacity(0.12) : Color.clear
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(
+                                        context.state.recommendation.mode == .walk ?
+                                        Color.green.opacity(0.4) : Color.gray.opacity(0.2),
+                                        lineWidth: 2
                                     )
                             )
                             
-                            // Bus + RER route
-                            HStack(spacing: 6) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            context.state.recommendation.mode == TransportationMode.bus ?
-                                            Color.blue.opacity(0.2) : Color.gray.opacity(0.1)
-                                        )
-                                        .frame(width: 28, height: 28)
-                                    
-                                    Image(systemName: "bus.fill")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(
-                                            context.state.recommendation.mode == TransportationMode.bus ?
-                                            .blue : .secondary
-                                        )
-                                }
+                            // Vertical divider
+                            Rectangle()
+                                .fill(Color.gray.opacity(0.25))
+                                .frame(width: 1)
+                                .padding(.vertical, 8)
+                            
+                            // Bus route option
+                            HStack(spacing: 8) {
+                                Image(systemName: "bus.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(
+                                        context.state.recommendation.mode == .bus ? .blue : .secondary.opacity(0.6)
+                                    )
+                                    .frame(width: 24)
                                 
-                                VStack(alignment: .leading, spacing: 1) {
-                                    if let busWait = calculateBusWaitAtStop(recommendation: context.state.recommendation) {
-                                        HStack(spacing: 2) {
+                                if let busWait = calculateBusWaitAtStop(recommendation: context.state.recommendation) {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        HStack(alignment: .firstTextBaseline, spacing: 2) {
                                             Text("\(busWait)")
-                                                .font(.system(size: 14, weight: .bold))
-                                                .foregroundColor(
-                                                    context.state.recommendation.mode == TransportationMode.bus ?
-                                                    .primary : .secondary
-                                                )
+                                                .font(.system(size: 18, weight: .bold, design: .rounded))
                                             Text("min")
-                                                .font(.system(size: 9))
+                                                .font(.system(size: 10, weight: .medium))
                                                 .foregroundColor(.secondary)
                                         }
+                                        .foregroundColor(
+                                            context.state.recommendation.mode == .bus ? .primary : .secondary.opacity(0.7)
+                                        )
+                                        
                                         Text("bus wait")
-                                            .font(.system(size: 8))
-                                            .foregroundColor(.secondary)
+                                            .font(.system(size: 9, weight: .medium))
+                                            .foregroundColor(.secondary.opacity(0.7))
                                     }
                                 }
                                 
-                                if context.state.recommendation.mode == TransportationMode.bus {
+                                if context.state.recommendation.mode == .bus {
+                                    Spacer()
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 16, weight: .semibold))
                                         .foregroundColor(.blue)
                                 }
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
                             .background(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(
-                                        context.state.recommendation.mode == TransportationMode.bus ?
-                                        Color.blue.opacity(0.12) : Color.gray.opacity(0.05)
+                                        context.state.recommendation.mode == .bus ?
+                                        Color.blue.opacity(0.12) : Color.clear
+                                    )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(
+                                        context.state.recommendation.mode == .bus ?
+                                        Color.blue.opacity(0.4) : Color.gray.opacity(0.2),
+                                        lineWidth: 2
                                     )
                             )
                         }
+                        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: context.state.recommendation.mode)
                         
-                        // Transit line info (if bus is recommended)
-                        if context.state.recommendation.mode == TransportationMode.bus,
+                        // Transit details row (if bus is recommended)
+                        if context.state.recommendation.mode == .bus,
                            let transit = context.state.recommendation.transitDetails {
-                            HStack(spacing: 6) {
-                                HStack(spacing: 3) {
+                            HStack(spacing: 8) {
+                                HStack(spacing: 4) {
                                     Image(systemName: "bus.fill")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(.blue)
+                                        .font(.system(size: 9, weight: .semibold))
                                     Text(transit.lineName)
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundColor(.blue)
+                                        .font(.system(size: 11, weight: .bold))
                                 }
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
                                 .background(
                                     Capsule()
                                         .fill(Color.blue.opacity(0.15))
                                 )
                                 
                                 Image(systemName: "arrow.right")
-                                    .font(.system(size: 7))
-                                    .foregroundColor(.secondary)
+                                    .font(.system(size: 8, weight: .semibold))
+                                    .foregroundColor(.secondary.opacity(0.5))
                                 
                                 Text(transit.destinationName)
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
                                 
@@ -239,53 +268,54 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                             }
                         }
                         
-                        // Urgency indicator with color bar
+                        // Slim urgency progress bar
                         if let urgency = context.state.recommendation.urgencyScore {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 10) {
                                 Text(urgencyEmoji(for: urgency))
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 12))
                                 
-                                GeometryReader { geometry in
-                                    ZStack(alignment: .leading) {
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .fill(Color.secondary.opacity(0.15))
-                                            .frame(height: 4)
-                                        
-                                        RoundedRectangle(cornerRadius: 2)
-                                            .fill(
-                                                LinearGradient(
-                                                    colors: [
-                                                        urgencyColor(for: urgency),
-                                                        urgencyColor(for: urgency).opacity(0.7)
-                                                    ],
-                                                    startPoint: .leading,
-                                                    endPoint: .trailing
-                                                )
+                                // Progress bar using ProgressView style
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(Color.secondary.opacity(0.15))
+                                        .frame(height: 6)
+                                    
+                                    Capsule()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    urgencyColor(for: urgency),
+                                                    urgencyColor(for: urgency).opacity(0.7)
+                                                ],
+                                                startPoint: .leading,
+                                                endPoint: .trailing
                                             )
-                                            .frame(width: geometry.size.width * urgency, height: 4)
-                                    }
+                                        )
+                                        .frame(width: max(20, urgency * 200), height: 6)
                                 }
-                                .frame(height: 4)
+                                .frame(maxWidth: .infinity)
                                 
                                 Text(urgencyText(for: urgency))
-                                    .font(.system(size: 8, weight: .medium))
+                                    .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(urgencyColor(for: urgency))
+                                    .frame(minWidth: 55, alignment: .trailing)
                             }
                         }
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
                 }
                 
             } compactLeading: {
                 // Compact: Dual-route icons with checkmark on recommended
-                HStack(spacing: 3) {
-                    // Walk icon with RER wait time badge
-                    ZStack(alignment: .topTrailing) {
+                HStack(spacing: 4) {
+                    // Walk icon with checkmark badge
+                    ZStack {
                         Circle()
                             .fill(
                                 context.state.recommendation.mode == TransportationMode.walk ?
                                 LinearGradient(
-                                    colors: [Color.green.opacity(0.8), Color.green.opacity(0.6)],
+                                    colors: [Color.green, Color.green.opacity(0.7)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ) :
@@ -295,33 +325,36 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 18, height: 18)
+                            .frame(width: 20, height: 20)
                         
                         Image(systemName: "figure.walk")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.white)
                         
-                        // Checkmark badge for recommended route
+                        // Checkmark badge for recommended route - using overlay alignment
                         if context.state.recommendation.mode == TransportationMode.walk {
                             Circle()
                                 .fill(Color.white)
-                                .frame(width: 8, height: 8)
+                                .frame(width: 9, height: 9)
                                 .overlay(
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 5, weight: .bold))
+                                        .font(.system(size: 5.5, weight: .heavy))
                                         .foregroundColor(.green)
                                 )
-                                .offset(x: 2, y: -2)
+                                .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 0.5)
+                                .alignmentGuide(.top) { $0[.top] }
+                                .alignmentGuide(.trailing) { $0[.trailing] }
                         }
                     }
+                    .frame(width: 24, height: 24) // Consistent outer frame
                     
-                    // Bus icon with wait time badge
-                    ZStack(alignment: .topTrailing) {
+                    // Bus icon with checkmark badge
+                    ZStack {
                         Circle()
                             .fill(
                                 context.state.recommendation.mode == TransportationMode.bus ?
                                 LinearGradient(
-                                    colors: [Color.blue.opacity(0.8), Color.blue.opacity(0.6)],
+                                    colors: [Color.blue, Color.blue.opacity(0.7)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ) :
@@ -331,35 +364,39 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 18, height: 18)
+                            .frame(width: 20, height: 20)
                         
                         Image(systemName: "bus.fill")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.white)
                         
-                        // Checkmark badge for recommended route
+                        // Checkmark badge for recommended route - using overlay alignment
                         if context.state.recommendation.mode == TransportationMode.bus {
                             Circle()
                                 .fill(Color.white)
-                                .frame(width: 8, height: 8)
+                                .frame(width: 9, height: 9)
                                 .overlay(
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 5, weight: .bold))
+                                        .font(.system(size: 5.5, weight: .heavy))
                                         .foregroundColor(.blue)
                                 )
-                                .offset(x: 2, y: -2)
+                                .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 0.5)
+                                .alignmentGuide(.top) { $0[.top] }
+                                .alignmentGuide(.trailing) { $0[.trailing] }
                         }
                     }
+                    .frame(width: 24, height: 24) // Consistent outer frame
                 }
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: context.state.recommendation.mode)
                 
             } compactTrailing: {
-                // Compact: Show wait times with "min wait" context
-                HStack(spacing: 4) {
+                // Compact: Show wait times with clean spacing
+                HStack(spacing: 6) {
                     // Walk route - RER wait time
                     if let rerWait = calculateRERWaitTime(recommendation: context.state.recommendation) {
                         HStack(spacing: 2) {
                             Text("\(rerWait)")
-                                .font(.system(size: 12, weight: context.state.recommendation.mode == TransportationMode.walk ? .bold : .medium))
+                                .font(.system(size: 13, weight: context.state.recommendation.mode == TransportationMode.walk ? .bold : .semibold, design: .rounded))
                                 .foregroundColor(
                                     context.state.recommendation.mode == TransportationMode.walk ?
                                     urgencyColor(for: context.state.recommendation.urgencyScore ?? 0.3) : .secondary
@@ -368,21 +405,22 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                             if context.state.recommendation.mode == TransportationMode.walk,
                                let urgency = context.state.recommendation.urgencyScore {
                                 Text(urgencyEmoji(for: urgency))
-                                    .font(.system(size: 7))
+                                    .font(.system(size: 8))
                             }
                         }
+                        .frame(minWidth: 20, alignment: .trailing) // Consistent width
                     }
                     
                     // Divider
-                    Circle()
-                        .fill(Color.secondary.opacity(0.5))
-                        .frame(width: 2, height: 2)
+                    Text("·")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
                     
                     // Bus route - Bus wait time
                     if let busWait = calculateBusWaitAtStop(recommendation: context.state.recommendation) {
                         HStack(spacing: 2) {
                             Text("\(busWait)")
-                                .font(.system(size: 12, weight: context.state.recommendation.mode == TransportationMode.bus ? .bold : .medium))
+                                .font(.system(size: 13, weight: context.state.recommendation.mode == TransportationMode.bus ? .bold : .semibold, design: .rounded))
                                 .foregroundColor(
                                     context.state.recommendation.mode == TransportationMode.bus ?
                                     urgencyColor(for: context.state.recommendation.urgencyScore ?? 0.3) : .secondary
@@ -391,11 +429,13 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                             if context.state.recommendation.mode == TransportationMode.bus,
                                let urgency = context.state.recommendation.urgencyScore {
                                 Text(urgencyEmoji(for: urgency))
-                                    .font(.system(size: 7))
+                                    .font(.system(size: 8))
                             }
                         }
+                        .frame(minWidth: 20, alignment: .leading) // Consistent width
                     }
                 }
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: context.state.recommendation.mode)
                 
             } minimal: {
                 // Minimal: Show recommended route with urgency indicator
@@ -403,17 +443,28 @@ struct TransportationRecommendationWidgetLiveActivity: Widget {
                     Circle()
                         .fill(
                             context.state.recommendation.urgencyScore.map { urgency in
-                                urgency > 0.7 ? Color.red.opacity(0.8) :
-                                urgency > 0.4 ? Color.orange.opacity(0.8) :
-                                Color.green.opacity(0.8)
-                            } ?? Color.gray.opacity(0.6)
+                                LinearGradient(
+                                    colors: urgency > 0.7 ? 
+                                        [Color.red, Color.red.opacity(0.75)] :
+                                    urgency > 0.4 ? 
+                                        [Color.orange, Color.orange.opacity(0.75)] :
+                                        [Color.green, Color.green.opacity(0.75)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            } ?? LinearGradient(
+                                colors: [Color.gray.opacity(0.6), Color.gray.opacity(0.45)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                        .frame(width: 16, height: 16)
                     
                     Image(systemName: context.state.recommendation.mode.iconName)
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.white)
                 }
+                .frame(width: 18, height: 18) // Consistent frame
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: context.state.recommendation.mode)
             }
             .widgetURL(URL(string: "simpledecision://recommendation"))
             .keylineTint(
