@@ -263,20 +263,20 @@ struct RecommendationLockScreenView: View {
         VStack(spacing: 0) {
             // Dual-pane route comparison with improved spacing
             HStack(spacing: 0) {
-                // 🏃 Walk Route (Left) - Shows walking time to destination
+                // 🏃 Walk Route (Left) - Shows RER wait time after walking to station
                 RoutePane(
                     icon: "figure.walk",
                     title: "Walk",
                     eta: context.state.recommendation.walkETA,
                     urgency: context.state.recommendation.mode == TransportationMode.walk ? 
                              context.state.recommendation.urgencyScore : calculateWalkUrgency(recommendation: context.state.recommendation),
-                    buffer: context.state.recommendation.walkETA,  // Display actual walking time
+                    buffer: calculateRERWaitTime(recommendation: context.state.recommendation),  // RER wait after walking to station
                     isRecommended: context.state.recommendation.mode == TransportationMode.walk,
                     safetyLevel: context.state.recommendation.mode == TransportationMode.walk ? 
                                  context.state.recommendation.safetyLevel : nil,
                     transitLine: nil,
                     walkToStop: nil,
-                    waitTime: nil  // Walk route doesn't use this
+                    waitTime: nil  // Walk route uses buffer for RER wait
                 )
                 
                 // Elegant divider with gradient
@@ -590,6 +590,35 @@ fileprivate func calculateBusUrgency(recommendation: Recommendation) -> Double? 
 }
 
 /// Calculate RER wait time for walk route (when bus is recommended)
+/// Calculate RER wait time at station after walking there
+/// This represents how long you wait for the RER after arriving at the station on foot
+fileprivate func calculateRERWaitTime(recommendation: Recommendation) -> Int? {
+    // For walk route: if we have transit details, the buffer represents the wait time
+    if recommendation.mode == .walk, let buffer = recommendation.bufferMinutes {
+        print("📊 Live Activity: RER wait time from walk recommendation buffer - \(buffer)min")
+        return buffer
+    }
+    
+    // For bus route: we need to estimate RER wait time based on typical frequency
+    // The walk route would take: walk to station + wait for RER + RER travel
+    // We already have walkETA (total walk time), so RER wait is estimated
+    
+    // Get the walk time to the RER station (should be similar to walk to bus stop)
+    guard let walkETA = recommendation.walkETA else {
+        print("📊 Live Activity: No walk ETA available for RER wait calculation")
+        return nil
+    }
+    
+    // Estimate RER wait based on typical frequency
+    // RER A/E during midday: every 6-8 minutes → average wait ~3-4 minutes
+    // Peak hours: every 3-5 minutes → average wait ~2-3 minutes
+    let hour = Calendar.current.component(.hour, from: Date())
+    let isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19)
+    let estimatedWait = isPeakHour ? 3 : 4
+    
+    print("📊 Live Activity: RER wait estimated - \(estimatedWait)min (peak: \(isPeakHour))")
+    return estimatedWait
+}
 
 /// Calculate actual bus wait time at stop (EXCLUDING walk time)
 fileprivate func calculateBusWaitAtStop(recommendation: Recommendation) -> Int? {
