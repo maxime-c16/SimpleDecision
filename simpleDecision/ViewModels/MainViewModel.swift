@@ -108,6 +108,15 @@ class MainViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+        
+        // Listen for debug refresh requests
+        NotificationCenter.default.publisher(for: NSNotification.Name("RefreshRecommendation"))
+            .sink { [weak self] _ in
+                Task {
+                    await self?.fetchRecommendation()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     private func loadInitialData() {
@@ -156,9 +165,41 @@ class MainViewModel: ObservableObject {
     
     /// Manually refresh the transportation recommendation
     func refreshRecommendation() async {
-        guard let destination = selectedDestination else {
+        await fetchRecommendation()
+    }
+    
+    /// Fetch new recommendation based on current destination
+    func fetchRecommendation() async {
+        // Check for debug test destination first
+        var destinationCoordinate: CLLocationCoordinate2D?
+        var destinationName = "Unknown"
+        
+        #if DEBUG
+        if let testDest = UserDefaults.standard.dictionary(forKey: "debugTestDestination"),
+           let lat = testDest["latitude"] as? Double,
+           let lon = testDest["longitude"] as? Double,
+           let name = testDest["name"] as? String {
+            destinationCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            destinationName = name
+            print("🎯 DEBUG: Using test destination: \(name) at \(lat), \(lon)")
+        }
+        #endif
+        
+        // Fall back to selected destination if no test destination
+        if destinationCoordinate == nil {
+            guard let destination = selectedDestination else {
+                let error = NSError(domain: "MainViewModel", code: 1001, 
+                                   userInfo: [NSLocalizedDescriptionKey: "No destination selected"])
+                handleError(error)
+                return
+            }
+            destinationCoordinate = destination.coordinate
+            destinationName = destination.name
+        }
+        
+        guard let finalDestination = destinationCoordinate else {
             let error = NSError(domain: "MainViewModel", code: 1001, 
-                               userInfo: [NSLocalizedDescriptionKey: "No destination selected"])
+                               userInfo: [NSLocalizedDescriptionKey: "No destination available"])
             handleError(error)
             return
         }
@@ -175,7 +216,7 @@ class MainViewModel: ObservableObject {
         
         do {
             let recommendation = try await decisionEngine
-                .generateRecommendation(to: destination.coordinate, weather: getCurrentWeather())
+                .generateRecommendation(to: finalDestination, weather: getCurrentWeather())
                 .async()
             
             currentRecommendation = recommendation
@@ -187,7 +228,6 @@ class MainViewModel: ObservableObject {
                     _ = await activityManager.updateActivity(with: recommendation)
                 } else {
                     // Start new activity
-                    let destinationName = destination.name
                     let startLocationName = "Current Location" // Could be enhanced with reverse geocoding
                     let success = await activityManager.startActivity(
                         destinationName: destinationName,

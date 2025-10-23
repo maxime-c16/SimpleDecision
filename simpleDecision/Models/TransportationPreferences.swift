@@ -34,7 +34,7 @@ struct TransportationPreferences: Codable {
         enabledLines: Set<String> = ["RER A", "RER E", "Bus 122", "Bus 124", "N34"],
         enabledStops: Set<String> = ["Cimetière de Vincennes", "Val de Fontenay RER"],
         allowedDestinations: Set<String> = [],
-        excludedDestinations: Set<String> = ["Place de la Résistance"]
+        excludedDestinations: Set<String> = ["Place de la Résistance", "Montreuil Boissière Acacia", "Montreuil-Boissière-Acacia"]
     ) {
         self.enabledLines = enabledLines
         self.enabledStops = enabledStops

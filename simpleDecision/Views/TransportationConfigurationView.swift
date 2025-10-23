@@ -227,6 +227,8 @@ struct DestinationsConfigurationView: View {
             "Château de Vincennes",
             "Cergy",
             "Gare de l'Est",
+            "Montreuil Boissière Acacia",
+            "Montreuil-Boissière-Acacia",
             "Poissy",
             "Saint-Germain-en-Laye",
             "Tournan",

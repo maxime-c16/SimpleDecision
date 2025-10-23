@@ -5,7 +5,8 @@ This document defines the core principles, priorities, and working agreements fo
 ## Purpose
 - Help users choose the best way to get to a destination (walk vs bus) by providing clear, timely recommendations and estimated times.
 - Focus on simple, reliable on-device UX with optional Live Activities for ongoing guidance.
- - Integrate PRIM API as a first-class enhancement: request PRIM predictions when available to improve recommendation accuracy, with secure opt-in and key storage.
+- Integrate PRIM API as a first-class enhancement: request PRIM predictions when available to improve recommendation accuracy, with secure opt-in and key storage.
+- **Provide real-time decision pulse**: Live Activities show dual-route comparison (walk vs bus+RER) with visual urgency indicators, enabling instant "at a glance" decisions without reading numbers.
 
 ## Core Principles
 1. Minimal, actionable UX: surface exactly one clear recommendation at a time (Walk / Bus / Tie) and two ETAs.
@@ -14,6 +15,7 @@ This document defines the core principles, priorities, and working agreements fo
 4. Build for device-first: prioritize device behaviour (iPhone + Live Activities) over simulator-only features.
 5. Safety & privacy: defaults favor privacy (no unnecessary location uploads), explicit consent for sharing data.
 6. Keep it small: prefer native APIs and minimal dependencies to avoid brittle CI and signing issues.
+7. **Visual intelligence over numbers**: Use color, animation, and haptics to convey urgency intuitively—users should understand the situation without reading text.
 
 ## Scope & Priorities (MVP)
 - Core: present recommendation + walkETA + busETA + confidence indicator on main screen.

@@ -24,6 +24,9 @@ struct AppSettings: Codable {
     var preferWalking: Bool // User prefers walking over transit
     var maxWalkingDistanceMeters: Double // Maximum distance willing to walk
     
+    // Safety preferences
+    var minimumAcceptableBuffer: Int // Minimum buffer time in minutes (default 2 min)
+    
     // Transportation filtering preferences
     var transportationPreferences: TransportationPreferences
     
@@ -39,6 +42,7 @@ struct AppSettings: Codable {
         walkingSpeedMps: 1.4,                    // Average walking speed (5 km/h)
         preferWalking: false,                     // Balanced recommendation
         maxWalkingDistanceMeters: 2000,          // 2km max walking distance
+        minimumAcceptableBuffer: 2,              // Minimum 2 min buffer for safety
         transportationPreferences: TransportationPreferences()  // Use defaults
     )
     
@@ -77,12 +81,8 @@ class AppSettingsManager: ObservableObject {
     
     /// Save current settings to UserDefaults
     func saveSettings() {
-        print("🔧 AppSettingsManager.saveSettings() called")
         if let data = try? JSONEncoder().encode(settings) {
             userDefaults.set(data, forKey: settingsKey)
-            print("🔧 AppSettingsManager: Settings saved successfully")
-        } else {
-            print("🔧 AppSettingsManager: Failed to encode settings")
         }
     }
     
@@ -137,6 +137,12 @@ class AppSettingsManager: ObservableObject {
     /// Update maximum walking distance
     func updateMaxWalkingDistance(_ distanceMeters: Double) {
         settings.maxWalkingDistanceMeters = max(500, min(distanceMeters, 10000)) // Clamp 500m-10km
+        saveSettings()
+    }
+    
+    /// Update minimum acceptable buffer time
+    func updateMinimumAcceptableBuffer(_ minutes: Int) {
+        settings.minimumAcceptableBuffer = max(0, min(minutes, 15)) // Clamp 0-15 minutes
         saveSettings()
     }
     

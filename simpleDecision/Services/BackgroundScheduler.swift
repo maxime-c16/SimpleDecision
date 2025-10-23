@@ -180,7 +180,6 @@ class BackgroundRefreshOperation: Operation, @unchecked Sendable {
         // Simulate quick background work
         DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 2) {
             // In production: fetch critical updates, check for alerts
-            print("Background refresh completed")
             semaphore.signal()
         }
         
@@ -197,7 +196,6 @@ class BackgroundProcessingOperation: Operation, @unchecked Sendable {
         
         DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 10) {
             // In production: analyze usage patterns, preload route data
-            print("Background processing completed")
             semaphore.signal()
         }
         
@@ -214,7 +212,6 @@ extension BackgroundScheduler {
         operation.completionBlock = {
             DispatchQueue.main.async {
                 self.lastBackgroundRefresh = Date()
-                print("Simulated background refresh completed")
             }
         }
         OperationQueue().addOperation(operation)

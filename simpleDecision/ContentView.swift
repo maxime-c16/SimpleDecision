@@ -154,7 +154,7 @@ struct ContentView: View {
     @ViewBuilder
     private var mainContentSection: some View {
         if let recommendation = mainViewModel.currentRecommendation {
-            RecommendationView(recommendation: recommendation)
+            EnhancedRecommendationView(recommendation: recommendation)
                 .transition(.opacity.combined(with: .scale))
         } else if mainViewModel.isLoading {
             VStack {

@@ -155,13 +155,17 @@ class DecisionEngine: ObservableObject {
             }
             
             // Fallback to walking recommendation if analysis fails
+            let walkingSpeed = self?.settingsManager.settings.walkingSpeedMps ?? 1.4
+            let walkETA = Int(distance / walkingSpeed / 60)
+            let busETA = Int(Double(walkETA) * 1.5) // Rough estimate: bus takes ~50% longer due to stops/wait
+            
             let walkingRecommendation = self?.createWalkingRecommendation(
                 distance: distance,
                 weather: weather
             ) ?? Recommendation(
                 mode: .walk,
-                walkETA: Int(distance / 80), // Default: 80m/min walking speed
-                busETA: nil,
+                walkETA: walkETA,
+                busETA: busETA,  // Always populate for dual-pane Live Activity
                 confidence: 0.3,
                 timestamp: Date(),
                 source: .localHeuristics
@@ -249,10 +253,7 @@ class DecisionEngine: ObservableObject {
                 // Sort stops by distance (closest first)
                 let sortedStops = validStops.sorted { $0.distance < $1.distance }
                 
-                print("🔍 DEBUG: Found \(sortedStops.count) valid stops (sorted by distance):")
-                for (idx, stop) in sortedStops.enumerated() {
-                    print("   [\(idx+1)] \(stop.name) - \(String(format: "%.0f", stop.distance))m away")
-                }
+                print("� Found \(sortedStops.count) transit stops nearby")
                 
                 // Fetch departures from all nearby stops in parallel
                 if sortedStops.isEmpty {
@@ -285,7 +286,7 @@ class DecisionEngine: ObservableObject {
                 
                 return combinedPublisher
                     .flatMap { results -> AnyPublisher<Recommendation, Error> in
-                        print("🔍 DEBUG: Fetched departures from \(results.count) stops")
+                        print("� Fetched departures from \(results.count) stops")
                         
                         // Sort results by distance (matches sortedStops order)
                         let sortedResults = results.sorted { $0.0.distance < $1.0.distance }
@@ -295,38 +296,28 @@ class DecisionEngine: ObservableObject {
                         var nearestStop: TransitStop?
                         
                         for (stop, primResponse) in sortedResults {
-                            print("   • \(stop.name): \(primResponse.departures.count) departures")
                             mergedDepartures.append(contentsOf: primResponse.departures)
                             
                             // Track the nearest stop (first one after sorting)
                             if nearestStop == nil {
                                 nearestStop = stop
                             }
-                            
-                            // Debug: Show first 5 departures per stop
-                            for (idx, dep) in primResponse.departures.prefix(5).enumerated() {
-                                print("      [\(idx+1)] \(dep.lineName) → \(dep.destinationName) @ \(dep.expectedDepartureTime)")
-                            }
                         }
                         
                         // Sort merged departures by time
                         mergedDepartures.sort { $0.expectedDepartureTime < $1.expectedDepartureTime }
+                    
                         
-                        // Debug: Show user preferences before filtering
-                        let prefs = self.settingsManager.settings.transportationPreferences
-                        print("🔧 User Preferences:")
-                        print("   enabledLines: \(prefs.enabledLines)")
-                        print("   enabledStops: \(prefs.enabledStops)")
-                        print("   excludedDestinations: \(prefs.excludedDestinations)")
-                        let allowedDestStr = prefs.allowedDestinations.isEmpty ? "[] (all allowed)" : "\(prefs.allowedDestinations)"
-                        print("   allowedDestinations: \(allowedDestStr)")
-                        
-                        // Filter using user preferences
+                        // Filter using user preferences with detailed logging
                         let filteredDepartures = mergedDepartures.filter { departure in
+                            let lineName = departure.lineName
+                            let destination = departure.destinationName
+                            let stopName = departure.stopName ?? "Unknown"
+                            
                             return self.settingsManager.settings.transportationPreferences.shouldIncludeDeparture(
-                                lineName: departure.lineName,
-                                destination: departure.destinationName,
-                                stopName: departure.stopName ?? "Unknown"
+                                lineName: lineName,
+                                destination: destination,
+                                stopName: stopName
                             )
                         }
                         
@@ -487,14 +478,27 @@ class DecisionEngine: ObservableObject {
             upcomingDepartures: mockDepartures
         )
         
+        // Calculate walk-only ETA for dual-route comparison
+        let walkingSpeed = settingsManager.settings.walkingSpeedMps
+        let walkOnlyETA = Int((distance / walkingSpeed / 60).rounded())
+        
+        // Calculate urgency and safety for Live Activity
+        let bufferMinutes = max(0, waitForBusMinutes - walkToStopMinutes)
+        let urgencyScore = calculateUrgencyScore(bufferMinutes: bufferMinutes)
+        let safetyLevel = calculateSafetyLevel(bufferMinutes: bufferMinutes)
+        
         return Recommendation(
             mode: .bus,
-            walkETA: nil,
+            walkETA: walkOnlyETA,  // Always populate for dual-pane Live Activity
             busETA: totalMinutes,
             confidence: 0.7,
             timestamp: Date(),
             source: .primAPI,
-            transitDetails: transitDetails
+            transitDetails: transitDetails,
+            alternativeTransitDetails: nil,
+            urgencyScore: urgencyScore,
+            bufferMinutes: bufferMinutes,
+            safetyLevel: safetyLevel
         )
     }
     
@@ -580,12 +584,19 @@ class DecisionEngine: ObservableObject {
         let safetyBufferSeconds: TimeInterval = 15
         let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60 + safetyBufferSeconds)
         
-        print("⏱️ Walk to stop: \(String(format: "%.1f", walkToStopMinutes)) min (\(String(format: "%.0f", nearestStop.distance))m at \(String(format: "%.1f", walkingSpeed))m/s)")
-        print("🚶 User arrival at stop: \(DateFormatter.localizedString(from: arrivalTimeAtStop, dateStyle: .none, timeStyle: .short))")
+        print("🚶 Walk to \(nearestStop.name): \(String(format: "%.0f", walkToStopMinutes))min")
+        
+        // IMPORTANT: Only consider departures from the nearest stop that user can actually walk to
+        // Filter out RER departures from Val de Fontenay if user is going to Cimetière, and vice versa
+        let departuresFromNearestStop = filteredDepartures.filter { departure in
+            departure.stopName == nearestStop.name
+        }
+        
+
         
         // Find first catchable departure - look ahead as far as needed
         // Remove 120-minute limit since we have full schedule from PRIM API
-        guard let nextDeparture = filteredDepartures.first(where: { departure in
+        guard let nextDeparture = departuresFromNearestStop.first(where: { departure in
             departure.isUpcoming &&
             departure.minutesUntilDeparture >= 0 &&
             arrivalTimeAtStop <= departure.expectedDepartureTime
@@ -605,16 +616,7 @@ class DecisionEngine: ObservableObject {
             )
         }
         
-        print("✅ Selected transit: \(nextDeparture.lineName) to \(nextDeparture.destinationName) at \(nextDeparture.expectedDepartureTime)")
-        print("   📝 Selected departure details:")
-        print("      LineRef: '\(nextDeparture.lineRef ?? "no-ref")'")
-        print("      Line Name: '\(nextDeparture.lineName)'")
-        let dirStr = nextDeparture.direction ?? "no-direction"
-        let platStr = nextDeparture.platformName.isEmpty ? "no-platform" : nextDeparture.platformName
-        print("      Destination: '\(nextDeparture.destinationName)'")
-        print("      Direction: '\(dirStr)'")
-        print("      Platform: '\(platStr)'")
-        print("      Status: \(nextDeparture.departureStatus)")
+        print("✅ Selected: \(nextDeparture.lineName) → \(nextDeparture.destinationName) | Departs: \(DateFormatter.localizedString(from: nextDeparture.expectedDepartureTime, dateStyle: .none, timeStyle: .short))")
         
         // Calculate wait time (time between arrival at stop and bus departure)
         let waitTimeMinutes = nextDeparture.expectedDepartureTime.timeIntervalSince(arrivalTimeAtStop) / 60
@@ -638,16 +640,46 @@ class DecisionEngine: ObservableObject {
         )
         
         // Find alternative lines at the same stop
-        let alternativeLines = findAlternativeLines(
+        var alternativeLines = findAlternativeLines(
             at: nearestStop,
             excluding: nextDeparture,
             from: primResponse
         )
         
-        print("🔄 Found \(alternativeLines.count) alternative lines:")
-        for (idx, alt) in alternativeLines.enumerated() {
-            print("   [\(idx + 1)] Line \(alt.lineNumber) → \(alt.destination) @ \(DateFormatter.localizedString(from: alt.nextDepartureTime, dateStyle: .none, timeStyle: .short)) (\(alt.isCatchable ? "✅ Catchable" : "❌ Too soon"))")
+        // IMPORTANT: Also add RER departures from Val de Fontenay for connection timing
+        // Even if user is taking Bus 122 from Cimetière, they need RER schedule from Val de Fontenay
+        // LIMIT to next 5 RER to avoid Live Activity payload size limits (4KB max)
+        let rerDepartures = primResponse.departures
+            .filter { departure in
+                departure.lineName.contains("RER") && departure.isUpcoming
+            }
+            .sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
+            .prefix(5) // CRITICAL: Limit to 5 RER trains to keep payload size under 4KB
+        
+        for rerDep in rerDepartures {
+            // Check if not already in alternatives (avoid duplicates)
+            let alreadyExists = alternativeLines.contains { alt in
+                alt.lineNumber == rerDep.lineName && 
+                abs(alt.nextDepartureTime.timeIntervalSince(rerDep.expectedDepartureTime)) < 60
+            }
+            
+            if !alreadyExists {
+                alternativeLines.append(AlternativeLine(
+                    id: rerDep.id.uuidString,
+                    lineNumber: rerDep.lineName,
+                    lineRef: rerDep.lineRef ?? "",
+                    destination: rerDep.destinationName,
+                    nextDepartureTime: rerDep.expectedDepartureTime,
+                    departureStatus: rerDep.departureStatus,
+                    isCatchable: true // RER catchability depends on bus arrival, not walk time
+                ))
+            }
         }
+        
+        // CRITICAL: Limit total alternatives to avoid Live Activity 4KB payload limit
+        alternativeLines = Array(alternativeLines.prefix(8))
+        
+        print("🔄 Found \(alternativeLines.count) alternatives")
         
         // Get upcoming departures for the same line (next 5 departures within 120 minutes)
         let upcomingDepartures = primResponse.departures
@@ -677,9 +709,24 @@ class DecisionEngine: ObservableObject {
                 )
             }
         
-        print("📅 Found \(upcomingDepartures.count) upcoming departures for Line \(nextDeparture.lineName):")
-        for (idx, upcoming) in upcomingDepartures.enumerated() {
-            print("   [\(idx + 1)] @ \(DateFormatter.localizedString(from: upcoming.departureTime, dateStyle: .none, timeStyle: .short)) - \(upcoming.status) (\(upcoming.isCatchable ? "✅" : "❌"))")
+        print("📅 Found \(upcomingDepartures.count) upcoming departures for Line \(nextDeparture.lineName)")
+        
+        // Extract ALL RER departures for accurate wait time calculation (lightweight for payload size)
+        let allRERDepartures = primResponse.departures
+            .filter { departure in
+                departure.lineName.contains("RER") && departure.isUpcoming
+            }
+            .sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
+            .prefix(20)  // Keep 20 RER trains (~40min window) - balance accuracy vs payload size
+            .map { departure in
+                RERDeparture(
+                    lineName: departure.lineName,
+                    departureTime: departure.expectedDepartureTime
+                )
+            }
+        
+        if allRERDepartures.count > 0 {
+            print("🚆 Extracted \(allRERDepartures.count) RER departures")
         }
         
         // Create transit details from PRIM API data (based on actual available fields)
@@ -698,17 +745,33 @@ class DecisionEngine: ObservableObject {
             etaBreakdown: etaBreakdown,
             alternativeLines: alternativeLines,
             stopId: nearestStop.id,
-            upcomingDepartures: Array(upcomingDepartures)
+            upcomingDepartures: Array(upcomingDepartures),
+            allRERDepartures: Array(allRERDepartures)
         )
+        
+        // Calculate walk-only ETA for dual-route comparison
+        let walkOnlyETA = Int((totalDistance / walkingSpeed / 60).rounded())
+        
+        // Calculate urgency and safety for Live Activity
+        let minutesUntilDeparture = transitDetails.minutesUntilDeparture
+        let bufferMinutes = max(0, minutesUntilDeparture - Int(walkToStopMinutes.rounded()))
+        let urgencyScore = calculateUrgencyScore(bufferMinutes: bufferMinutes)
+        let safetyLevel = calculateSafetyLevel(bufferMinutes: bufferMinutes)
+        
+        print("🎯 Urgency: \(String(format: "%.2f", urgencyScore)) | Buffer: \(bufferMinutes)min | Safety: \(safetyLevel)")
         
         return Recommendation(
             mode: .bus,
-            walkETA: nil,
+            walkETA: walkOnlyETA,  // Always populate for dual-pane Live Activity
             busETA: Int(totalTimeMinutes),
             confidence: confidence,
             timestamp: Date(),
             source: .primAPI,
-            transitDetails: transitDetails
+            transitDetails: transitDetails,
+            alternativeTransitDetails: nil,
+            urgencyScore: urgencyScore,
+            bufferMinutes: bufferMinutes,
+            safetyLevel: safetyLevel
         )
     }
     
@@ -737,9 +800,11 @@ class DecisionEngine: ObservableObject {
         let walkToStopMinutes = stop.distance / walkingSpeed / 60
         let arrivalTimeAtStop = Date().addingTimeInterval(walkToStopMinutes * 60)
         
-        // Get all departures except the main one
+        // Get all departures except the main one, from the same stop
         let alternatives = response.departures
             .filter { departure in
+                // MUST be from the same stop (don't mix Cimetière buses with Val de Fontenay RER)
+                guard departure.stopName == stop.name else { return false }
                 // Exclude the main departure
                 guard departure.id != mainDeparture.id else { return false }
                 // Only upcoming departures
@@ -823,6 +888,9 @@ class DecisionEngine: ObservableObject {
     ) -> Recommendation {
         if preferWalking {
             // Recommend walking but include transit as alternative
+            // Calculate urgency for walking mode (based on time pressure to leave)
+            let walkUrgency = calculateWalkingUrgency(walkETA: walking.walkETA)
+            
             return Recommendation(
                 mode: .walk,
                 walkETA: walking.walkETA,
@@ -831,11 +899,26 @@ class DecisionEngine: ObservableObject {
                 timestamp: walking.timestamp,
                 source: walking.source,
                 transitDetails: nil,
-                alternativeTransitDetails: transit.transitDetails
+                alternativeTransitDetails: transit.transitDetails,
+                urgencyScore: walkUrgency,
+                bufferMinutes: nil,  // Walking doesn't have a buffer concept
+                safetyLevel: "comfortable"  // Walking is always safe
             )
         } else {
-            // Recommend transit (bus is better for long distances)
-            return transit
+            // Recommend transit but ensure walkETA is populated for dual-pane Live Activity
+            return Recommendation(
+                mode: transit.mode,
+                walkETA: transit.walkETA ?? walking.walkETA,  // Use transit's walkETA, fallback to walking's
+                busETA: transit.busETA,
+                confidence: transit.confidence,
+                timestamp: transit.timestamp,
+                source: transit.source,
+                transitDetails: transit.transitDetails,
+                alternativeTransitDetails: transit.alternativeTransitDetails,
+                urgencyScore: transit.urgencyScore,  // Pass through from transit
+                bufferMinutes: transit.bufferMinutes,
+                safetyLevel: transit.safetyLevel
+            )
         }
     }
     
@@ -1054,6 +1137,57 @@ enum DecisionError: LocalizedError {
             return "Invalid response from transit API"
         case .coordinateOutOfRange:
             return "Coordinates are outside valid range"
+        }
+    }
+}
+
+// MARK: - Urgency and Safety Helpers
+
+extension DecisionEngine {
+    /// Calculate urgency score (0.0-1.0) based on buffer time
+    /// Higher score = more urgent (less buffer time)
+    private func calculateUrgencyScore(bufferMinutes: Int) -> Double {
+        switch bufferMinutes {
+        case ...1:
+            return 0.95  // Very urgent - run!
+        case 2:
+            return 0.85  // Urgent - hurry!
+        case 3...4:
+            return 0.65  // Medium urgency
+        case 5...7:
+            return 0.35  // Low urgency
+        default:
+            return 0.15  // Comfortable - plenty of time
+        }
+    }
+    
+    /// Calculate safety level based on buffer time
+    private func calculateSafetyLevel(bufferMinutes: Int) -> String {
+        switch bufferMinutes {
+        case ...1:
+            return "tooRisky"      // ≤1 min buffer: too risky
+        case 2...3:
+            return "acceptable"    // 2-3 min: acceptable but tight
+        default:
+            return "comfortable"   // ≥4 min: comfortable
+        }
+    }
+    
+    /// Calculate urgency for walking mode (based on distance/time to walk)
+    private func calculateWalkingUrgency(walkETA: Int?) -> Double {
+        guard let eta = walkETA else { return 0.2 }
+        
+        // Longer walks have slightly higher urgency (need to leave earlier)
+        // But walking is generally low urgency since there's no departure to catch
+        switch eta {
+        case ...8:
+            return 0.1   // Very short walk
+        case 9...12:
+            return 0.2   // Short walk
+        case 13...18:
+            return 0.35  // Medium walk
+        default:
+            return 0.5   // Long walk
         }
     }
 }

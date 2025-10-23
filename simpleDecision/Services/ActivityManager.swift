@@ -50,13 +50,9 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
     // MARK: - ActivityManagerProtocol Implementation
     
     func startActivity(destinationName: String, startLocationName: String, recommendation: Recommendation) async -> Bool {
-        print("🟡 ActivityManager: Attempting to start Live Activity")
-        print("🟡 Activities enabled: \(isActivitiesEnabled)")
-        print("🟡 Authorization info: \(ActivityAuthorizationInfo().areActivitiesEnabled)")
         
         guard isActivitiesEnabled else {
             await updateError("Live Activities are not enabled by user")
-            print("🔴 Live Activities disabled by user")
             return false
         }
         
@@ -85,8 +81,6 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
                 )
             )
             
-            print("✅ Live Activity started successfully!")
-            print("✅ Activity ID: \(activity.id)")
             
             await MainActor.run {
                 self.currentActivity = activity
@@ -99,7 +93,6 @@ class LiveActivityManager: ActivityManagerProtocol, ObservableObject {
             return true
             
         } catch {
-            print("🔴 Failed to start Live Activity: \(error)")
             await updateError("Failed to start Live Activity: \(error.localizedDescription)")
             return false
         }

@@ -310,94 +310,162 @@ class PRIMClient: ObservableObject {
         let hour = Calendar.current.component(.hour, from: Date())
         let isDaytime = hour >= 6 && hour < 22  // Daytime: 6 AM to 10 PM
         
-        // Use realistic Val de Fontenay data based on real API responses
+        // Determine stop name from stop code
+        // SP:47900 = Val de Fontenay RER, SP:46543 = Cimetière de Vincennes
+        let stopName: String
+        if stopCode.contains("47900") {
+            stopName = "Val de Fontenay RER"
+        } else if stopCode.contains("46543") {
+            stopName = "Cimetière de Vincennes"
+        } else {
+            stopName = "Unknown Stop"
+        }
+        
+        // Use realistic data based on which stop is requested
         let departures: [Departure]
         
-        if isDaytime {
-            departures = [
-                Departure(
-                    lineName: "A",  // RER A - primary line at Val de Fontenay
-                    lineRef: "STIF:Line::C01742:",
-                    destinationName: "Cergy le Haut",
-                    destinationRef: nil,
-                    expectedDepartureTime: Date().addingTimeInterval(3 * 60), // 3 minutes
-                    departureStatus: "onTime",
-                    platformName: "Val de Fontenay",
-                    direction: "Cergy le Haut",
-                    vehicleJourneyRef: nil,
-                    operatorRef: "STIF:Operator::RATP:",
-                    vehicleAtStop: false
-                ),
-                Departure(
-                    lineName: "A",  // RER A - alternate direction
-                    lineRef: "STIF:Line::C01742:",
-                    destinationName: "Poissy",
-                    destinationRef: nil,
-                    expectedDepartureTime: Date().addingTimeInterval(5 * 60), // 5 minutes
-                    departureStatus: "onTime",
-                    platformName: "Val de Fontenay",
-                    direction: "Poissy",
-                    vehicleJourneyRef: nil,
-                    operatorRef: "STIF:Operator::RATP:",
-                    vehicleAtStop: false
-                ),
-                Departure(
-                    lineName: "122",  // Bus 122 - serves Val de Fontenay area
-                    lineRef: "STIF:Line::C01152:",
-                    destinationName: "Val de Fontenay",
-                    destinationRef: nil,
-                    expectedDepartureTime: Date().addingTimeInterval(8 * 60), // 8 minutes
-                    departureStatus: "onTime",
-                    platformName: "Nation",
-                    direction: "Direction Val de Fontenay",
-                    vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
-                    vehicleAtStop: false
-                ),
-                Departure(
-                    lineName: "1",  // Metro 1 - major daytime metro line
-                    lineRef: "STIF:Line::C01371:",
-                    destinationName: "La Défense",
-                    destinationRef: nil,
-                    expectedDepartureTime: Date().addingTimeInterval(12 * 60), // 12 minutes
-                    departureStatus: "onTime",
-                    platformName: "Nation Métro",
-                    direction: "Direction La Défense",
-                    vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
-                    vehicleAtStop: false
-                )
-            ]
+        if stopCode.contains("47900") {
+            // Val de Fontenay RER - RER A and E trains only
+            if isDaytime {
+                // Generate realistic RER schedule with trains every 3-6 minutes for next 30 minutes
+                var rerDepartures: [Departure] = []
+                let now = Date()
+                
+                // RER A trains (every 3-6 minutes, alternating destinations)
+                let rerADestinations = ["Cergy le Haut", "Poissy", "Marne-la-Vallée"]
+                for i in 0..<10 { // 10 trains over ~30 minutes
+                    let offset = 3 + (i * 3) // 3, 6, 9, 12, 15, 18, 21, 24, 27, 30 minutes
+                    rerDepartures.append(Departure(
+                        lineName: "RER A",
+                        lineRef: "STIF:Line::C01742:",
+                        destinationName: rerADestinations[i % rerADestinations.count],
+                        destinationRef: nil,
+                        expectedDepartureTime: now.addingTimeInterval(TimeInterval(offset * 60)),
+                        departureStatus: i < 3 ? "onTime" : "scheduled",
+                        platformName: "Val de Fontenay",
+                        direction: rerADestinations[i % rerADestinations.count],
+                        vehicleJourneyRef: nil,
+                        operatorRef: "STIF:Operator::RATP:",
+                        vehicleAtStop: i == 0,
+                        stopName: stopName
+                    ))
+                }
+                
+                // RER E trains (every 4-8 minutes)
+                let rerEDestinations = ["Haussmann-St-Lazare", "Chelles-Gournay"]
+                for i in 0..<6 { // 6 trains over ~30 minutes
+                    let offset = 5 + (i * 5) // 5, 10, 15, 20, 25, 30 minutes
+                    rerDepartures.append(Departure(
+                        lineName: "RER E",
+                        lineRef: "STIF:Line::C01729:",
+                        destinationName: rerEDestinations[i % rerEDestinations.count],
+                        destinationRef: nil,
+                        expectedDepartureTime: now.addingTimeInterval(TimeInterval(offset * 60)),
+                        departureStatus: i < 2 ? "onTime" : "scheduled",
+                        platformName: "Val de Fontenay",
+                        direction: rerEDestinations[i % rerEDestinations.count],
+                        vehicleJourneyRef: nil,
+                        operatorRef: "STIF:Operator::SNCF:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    ))
+                }
+                
+                departures = rerDepartures.sorted { $0.expectedDepartureTime < $1.expectedDepartureTime }
+                print("🚆 Generated \(departures.count) RER mock departures for Val de Fontenay")
+            
+            } else {
+                departures = []  // No RER at night
+            }
+        } else if stopCode.contains("46543") {
+            // Cimetière de Vincennes - Bus 122 only
+            if isDaytime {
+                departures = [
+                    Departure(
+                        lineName: "Bus 122",  // Match user preferences format
+                        lineRef: "STIF:Line::C01152:",
+                        destinationName: "Nogent-Chalamet",
+                        destinationRef: nil,
+                        expectedDepartureTime: Date().addingTimeInterval(4 * 60),
+                        departureStatus: "onTime",
+                        platformName: "Cimetière de Vincennes",
+                        direction: "Direction Nogent",
+                        vehicleJourneyRef: nil,
+                        operatorRef: "RATP:Operator::100:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    ),
+                    Departure(
+                        lineName: "Bus 122",  // Match user preferences format
+                        lineRef: "STIF:Line::C01152:",
+                        destinationName: "Nogent-Chalamet",
+                        destinationRef: nil,
+                        expectedDepartureTime: Date().addingTimeInterval(10 * 60),
+                        departureStatus: "onTime",
+                        platformName: "Cimetière de Vincennes",
+                        direction: "Direction Nogent",
+                        vehicleJourneyRef: nil,
+                        operatorRef: "RATP:Operator::100:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    )
+                ]
+            } else {
+                // Night bus from Cimetière
+                departures = [
+                    Departure(
+                        lineName: "N34",
+                        lineRef: "STIF:Line::C01398:",
+                        destinationName: "Gare de Lyon",
+                        destinationRef: "STIF:StopPoint:Q:421409:",
+                        expectedDepartureTime: Date().addingTimeInterval(15 * 60),
+                        departureStatus: "onTime",
+                        platformName: "Cimetière de Vincennes",
+                        direction: "Direction Gare de Lyon",
+                        vehicleJourneyRef: nil,
+                        operatorRef: "RATP:Operator::100:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    )
+                ]
+            }
         } else {
-            // Night buses for actual nighttime hours
-            departures = [
-                Departure(
-                    lineName: "N34",  // N34 Night bus (C01398)
-                    lineRef: "STIF:Line::C01398:",
-                    destinationName: "Gare de Lyon",
-                    destinationRef: "STIF:StopPoint:Q:421409:",
-                    expectedDepartureTime: Date().addingTimeInterval(15 * 60), // 15 minutes
-                    departureStatus: "onTime",
-                    platformName: "Nation",
-                    direction: "Direction Gare de Lyon",
-                    vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
-                    vehicleAtStop: false
-                ),
-                Departure(
-                    lineName: "N11",  // N11 Night bus
-                    lineRef: "STIF:Line::C01385:",
-                    destinationName: "Gare de l'Est",
-                    destinationRef: nil,
-                    expectedDepartureTime: Date().addingTimeInterval(25 * 60), // 25 minutes
-                    departureStatus: "onTime",
-                    platformName: "Nation",
-                    direction: nil,
-                    vehicleJourneyRef: nil,
-                    operatorRef: "RATP:Operator::100:",
-                    vehicleAtStop: false
-                )
-            ]
+            // Unknown stop - return generic departures
+            if isDaytime {
+                departures = [
+                    Departure(
+                        lineName: "Bus 122",  // Match user preferences format
+                        lineRef: "STIF:Line::C01152:",
+                        destinationName: "Nogent-Chalamet",
+                        destinationRef: nil,
+                        expectedDepartureTime: Date().addingTimeInterval(8 * 60),
+                        departureStatus: "onTime",
+                        platformName: "Unknown",
+                        direction: "Direction Nogent",
+                        vehicleJourneyRef: nil,
+                        operatorRef: "RATP:Operator::100:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    )
+                ]
+            } else {
+                departures = [
+                    Departure(
+                        lineName: "N34",  // Already correct format
+                        lineRef: "STIF:Line::C01398:",
+                        destinationName: "Gare de Lyon",
+                        destinationRef: "STIF:StopPoint:Q:421409:",
+                        expectedDepartureTime: Date().addingTimeInterval(15 * 60),
+                        departureStatus: "onTime",
+                        platformName: "Unknown",
+                        direction: "Direction Gare de Lyon",
+                        vehicleJourneyRef: nil,
+                        operatorRef: "RATP:Operator::100:",
+                        vehicleAtStop: false,
+                        stopName: stopName
+                    )
+                ]
+            }
         }
         
         return PRIMResponse(

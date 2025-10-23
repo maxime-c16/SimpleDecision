@@ -42,6 +42,9 @@ struct DebugControlsView: View {
             // Location Controls
             locationControlsSection
             
+            // Destination Testing
+            destinationTestSection
+            
             // Live Activities Controls
             if #available(iOS 16.1, *) {
                 liveActivitiesSection
@@ -103,7 +106,69 @@ struct DebugControlsView: View {
         }
     }
     
-    @available(iOS 16.1, *)
+    private var destinationTestSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            debugSectionHeader("Destination Testing", icon: "map.fill")
+            
+            VStack(spacing: 8) {
+                Text("Test different walk/bus times")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                // Pre-configured test destinations with known ETAs
+                VStack(spacing: 6) {
+                    destinationTestButton(
+                        title: "Close (Walk wins)",
+                        subtitle: "Walk: 8min, Bus: 15min",
+                        lat: 48.8614,
+                        lon: 2.4750
+                    )
+                    
+                    destinationTestButton(
+                        title: "Medium (Bus wins)",
+                        subtitle: "Walk: 25min, Bus: 12min",
+                        lat: 48.8450,
+                        lon: 2.3700
+                    )
+                    
+                    destinationTestButton(
+                        title: "Far (Bus wins big)",
+                        subtitle: "Walk: 45min, Bus: 18min",
+                        lat: 48.8566,
+                        lon: 2.3522
+                    )
+                    
+                    destinationTestButton(
+                        title: "Tie Scenario",
+                        subtitle: "Walk: 15min, Bus: 15min",
+                        lat: 48.8580,
+                        lon: 2.4100
+                    )
+                }
+            }
+        }
+    }
+    
+    private func destinationTestButton(title: String, subtitle: String, lat: Double, lon: Double) -> some View {
+        Button {
+            setTestDestination(lat: lat, lon: lon, name: title)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .background(Color.purple.opacity(0.15))
+            .cornerRadius(8)
+        }
+    }
+    
     private var liveActivitiesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             debugSectionHeader("Live Activities", icon: "bell.badge")
@@ -255,6 +320,24 @@ struct DebugControlsView: View {
     }
     
     // MARK: - Actions
+    
+    private func setTestDestination(lat: Double, lon: Double, name: String) {
+        // Store test destination in UserDefaults for the app to use
+        let testDest = [
+            "latitude": lat,
+            "longitude": lon,
+            "name": name
+        ] as [String : Any]
+        
+        UserDefaults.standard.set(testDest, forKey: "debugTestDestination")
+        
+        print("🎯 DEBUG: Set test destination: \(name)")
+        print("   Coordinates: \(lat), \(lon)")
+        print("   App will use this on next recommendation update")
+        
+        // Trigger a notification to refresh the recommendation
+        NotificationCenter.default.post(name: NSNotification.Name("RefreshRecommendation"), object: nil)
+    }
     
     private func setMockLocation(_ mockLocation: MockLocation) {
         locationService.setMockLocation(mockLocation.coordinate)

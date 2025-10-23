@@ -78,6 +78,17 @@ public struct AlternativeLine: Codable, Equatable, Hashable, Identifiable {
     }
 }
 
+/// Lightweight RER departure info for wait time calculation (minimal payload size)
+public struct RERDeparture: Codable, Equatable, Hashable {
+    public let lineName: String  // "RER A" or "RER E"
+    public let departureTime: Date
+    
+    public init(lineName: String, departureTime: Date) {
+        self.lineName = lineName
+        self.departureTime = departureTime
+    }
+}
+
 /// Bus departure schedule information from PRIM API
 public struct BusDeparture: Codable, Equatable, Hashable, Identifiable {
     public let id: String
@@ -119,6 +130,7 @@ public struct TransitDetails: Codable, Equatable, Hashable {
     public let alternativeLines: [AlternativeLine]
     public let stopId: String?
     public let upcomingDepartures: [BusDeparture]  // Full schedule for the recommended line
+    public let allRERDepartures: [RERDeparture]  // Lightweight RER schedule for wait time calculation
     
     public init(
         lineName: String,
@@ -135,7 +147,8 @@ public struct TransitDetails: Codable, Equatable, Hashable {
         etaBreakdown: TransitETABreakdown? = nil,
         alternativeLines: [AlternativeLine] = [],
         stopId: String? = nil,
-        upcomingDepartures: [BusDeparture] = []
+        upcomingDepartures: [BusDeparture] = [],
+        allRERDepartures: [RERDeparture] = []
     ) {
         self.lineName = lineName
         self.lineRef = lineRef
@@ -152,6 +165,7 @@ public struct TransitDetails: Codable, Equatable, Hashable {
         self.alternativeLines = alternativeLines
         self.stopId = stopId
         self.upcomingDepartures = upcomingDepartures
+        self.allRERDepartures = allRERDepartures
     }
     
     /// Minutes until departure
@@ -208,8 +222,14 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
     // Alternative option info (e.g., bus info when walking is recommended)
     public let alternativeTransitDetails: TransitDetails?
     
+    // Phase 2: Urgency and Safety tracking
+    public let urgencyScore: Double?    // 0.0-1.0, from DualRouteCalculator
+    public let bufferMinutes: Int?      // Safety buffer before departure
+    public let safetyLevel: String?     // "comfortable", "acceptable", "tooRisky"
+    
     enum CodingKeys: String, CodingKey {
         case mode, walkETA, busETA, confidence, timestamp, source, transitDetails, alternativeTransitDetails
+        case urgencyScore, bufferMinutes, safetyLevel
     }
     
     public init(
@@ -220,7 +240,10 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         timestamp: Date,
         source: RecommendationSource,
         transitDetails: TransitDetails? = nil,
-        alternativeTransitDetails: TransitDetails? = nil
+        alternativeTransitDetails: TransitDetails? = nil,
+        urgencyScore: Double? = nil,
+        bufferMinutes: Int? = nil,
+        safetyLevel: String? = nil
     ) {
         self.id = UUID()
         self.mode = mode
@@ -231,6 +254,9 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.source = source
         self.transitDetails = transitDetails
         self.alternativeTransitDetails = alternativeTransitDetails
+        self.urgencyScore = urgencyScore
+        self.bufferMinutes = bufferMinutes
+        self.safetyLevel = safetyLevel
     }
     
     public init(from decoder: Decoder) throws {
@@ -244,6 +270,9 @@ public struct Recommendation: Codable, Equatable, Identifiable, Hashable {
         self.source = try container.decode(RecommendationSource.self, forKey: .source)
         self.transitDetails = try container.decodeIfPresent(TransitDetails.self, forKey: .transitDetails)
         self.alternativeTransitDetails = try container.decodeIfPresent(TransitDetails.self, forKey: .alternativeTransitDetails)
+        self.urgencyScore = try container.decodeIfPresent(Double.self, forKey: .urgencyScore)
+        self.bufferMinutes = try container.decodeIfPresent(Int.self, forKey: .bufferMinutes)
+        self.safetyLevel = try container.decodeIfPresent(String.self, forKey: .safetyLevel)
     }
     
     /// Primary ETA based on recommended mode
@@ -354,6 +383,172 @@ public enum RecommendationSource: String, Codable {
         case .localHeuristics: return "Local Calculation"
         case .primAPI: return "PRIM Real-time"
         case .mock: return "Mock Data"
+        }
+    }
+}
+
+// MARK: - Enhanced Recommendation Data Models
+
+/// Detailed timing breakdown for a bus option
+public struct BusOptionTiming: Codable, Equatable, Hashable, Identifiable {
+    public let id: UUID
+    public let lineName: String
+    public let lineRef: String?
+    public let destinationName: String
+    public let stopName: String
+    public let departureTime: Date
+    public let departureStatus: String
+    
+    // Timing breakdown
+    public let walkToStopMinutes: Int
+    public let waitAtStopMinutes: Int
+    public let busRideMinutes: Int
+    public let rerWaitMinutes: Int?  // Wait time for RER at destination
+    
+    // Total journey time
+    public var totalMinutes: Int {
+        return walkToStopMinutes + waitAtStopMinutes + busRideMinutes + (rerWaitMinutes ?? 0)
+    }
+    
+    // Whether this bus is catchable given current time
+    public var isCatchable: Bool {
+        let arrivalTime = Date().addingTimeInterval(TimeInterval(walkToStopMinutes * 60))
+        return arrivalTime < departureTime
+    }
+    
+    // RER arrival time and display (when RER wait is available)
+    public var rerArrivalTime: Date? {
+        guard rerWaitMinutes != nil else { return nil }
+        // Calculate when bus arrives at Val de Fontenay
+        let busArrivalSeconds = TimeInterval((walkToStopMinutes + waitAtStopMinutes + busRideMinutes) * 60)
+        return Date().addingTimeInterval(busArrivalSeconds)
+    }
+    
+    public var rerDepartureTime: Date? {
+        guard let rerWait = rerWaitMinutes, let arrival = rerArrivalTime else { return nil }
+        return arrival.addingTimeInterval(TimeInterval(rerWait * 60))
+    }
+    
+    public var rerScheduleDisplay: String? {
+        guard let rerDep = rerDepartureTime, let rerWait = rerWaitMinutes else { return nil }
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let timeString = formatter.string(from: rerDep)
+        return "\(rerWait)min wait (RER at \(timeString))"
+    }
+    
+    public init(
+        lineName: String,
+        lineRef: String? = nil,
+        destinationName: String,
+        stopName: String,
+        departureTime: Date,
+        departureStatus: String,
+        walkToStopMinutes: Int,
+        waitAtStopMinutes: Int,
+        busRideMinutes: Int,
+        rerWaitMinutes: Int? = nil
+    ) {
+        self.id = UUID()
+        self.lineName = lineName
+        self.lineRef = lineRef
+        self.destinationName = destinationName
+        self.stopName = stopName
+        self.departureTime = departureTime
+        self.departureStatus = departureStatus
+        self.walkToStopMinutes = walkToStopMinutes
+        self.waitAtStopMinutes = waitAtStopMinutes
+        self.busRideMinutes = busRideMinutes
+        self.rerWaitMinutes = rerWaitMinutes
+    }
+}
+
+/// Walk recommendation with RER station details
+public struct WalkRecommendationDetails: Codable, Equatable, Hashable {
+    public let walkToStationMinutes: Int
+    public let stationName: String
+    public let rerWaitMinutes: Int
+    public let nextBusOptionMinutes: Int?  // Minutes until next bus becomes viable
+    public let totalMinutes: Int
+    
+    public init(
+        walkToStationMinutes: Int,
+        stationName: String,
+        rerWaitMinutes: Int,
+        nextBusOptionMinutes: Int? = nil
+    ) {
+        self.walkToStationMinutes = walkToStationMinutes
+        self.stationName = stationName
+        self.rerWaitMinutes = rerWaitMinutes
+        self.nextBusOptionMinutes = nextBusOptionMinutes
+        self.totalMinutes = walkToStationMinutes + rerWaitMinutes
+    }
+    
+    // RER arrival and departure times for display
+    public var stationArrivalTime: Date {
+        return Date().addingTimeInterval(TimeInterval(walkToStationMinutes * 60))
+    }
+    
+    public var rerDepartureTime: Date {
+        return stationArrivalTime.addingTimeInterval(TimeInterval(rerWaitMinutes * 60))
+    }
+    
+    public var rerScheduleDisplay: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let timeString = formatter.string(from: rerDepartureTime)
+        return "\(rerWaitMinutes)min wait (RER at \(timeString))"
+    }
+}
+
+/// Complete recommendation data with all timing details
+public struct EnhancedRecommendation: Codable, Equatable, Hashable, Identifiable {
+    public let id: UUID
+    public let recommendationType: RecommendationType
+    public let timestamp: Date
+    public let confidence: Double
+    
+    // Walk-specific details
+    public let walkDetails: WalkRecommendationDetails?
+    
+    // Bus-specific details
+    public let primaryBusOption: BusOptionTiming?
+    public let alternativeBusOptions: [BusOptionTiming]
+    
+    public enum RecommendationType: String, Codable {
+        case walk
+        case bus
+        case tie
+    }
+    
+    public init(
+        recommendationType: RecommendationType,
+        timestamp: Date = Date(),
+        confidence: Double,
+        walkDetails: WalkRecommendationDetails? = nil,
+        primaryBusOption: BusOptionTiming? = nil,
+        alternativeBusOptions: [BusOptionTiming] = []
+    ) {
+        self.id = UUID()
+        self.recommendationType = recommendationType
+        self.timestamp = timestamp
+        self.confidence = confidence
+        self.walkDetails = walkDetails
+        self.primaryBusOption = primaryBusOption
+        self.alternativeBusOptions = alternativeBusOptions
+    }
+    
+    /// Primary ETA based on recommendation type
+    public var primaryETA: Int {
+        switch recommendationType {
+        case .walk:
+            return walkDetails?.totalMinutes ?? 0
+        case .bus:
+            return primaryBusOption?.totalMinutes ?? 0
+        case .tie:
+            let walkTime = walkDetails?.totalMinutes ?? Int.max
+            let busTime = primaryBusOption?.totalMinutes ?? Int.max
+            return min(walkTime, busTime)
         }
     }
 }
