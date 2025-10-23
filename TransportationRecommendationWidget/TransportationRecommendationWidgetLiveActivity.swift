@@ -263,15 +263,14 @@ struct RecommendationLockScreenView: View {
         VStack(spacing: 0) {
             // Dual-pane route comparison with improved spacing
             HStack(spacing: 0) {
-                // 🏃 Walk Route (Left) - Shows RER wait time
+                // 🏃 Walk Route (Left) - Shows walking time to destination
                 RoutePane(
                     icon: "figure.walk",
                     title: "Walk",
                     eta: context.state.recommendation.walkETA,
                     urgency: context.state.recommendation.mode == TransportationMode.walk ? 
                              context.state.recommendation.urgencyScore : calculateWalkUrgency(recommendation: context.state.recommendation),
-                    buffer: context.state.recommendation.mode == TransportationMode.walk ?
-                            context.state.recommendation.bufferMinutes : calculateRERWaitTime(recommendation: context.state.recommendation),
+                    buffer: context.state.recommendation.walkETA,  // Display actual walking time
                     isRecommended: context.state.recommendation.mode == TransportationMode.walk,
                     safetyLevel: context.state.recommendation.mode == TransportationMode.walk ? 
                                  context.state.recommendation.safetyLevel : nil,
@@ -591,20 +590,6 @@ fileprivate func calculateBusUrgency(recommendation: Recommendation) -> Double? 
 }
 
 /// Calculate RER wait time for walk route (when bus is recommended)
-fileprivate func calculateRERWaitTime(recommendation: Recommendation) -> Int? {
-    guard let walkETA = recommendation.walkETA else {
-        print("📊 Live Activity: Walk ETA not available for RER wait calculation")
-        return nil
-    }
-    
-    // Estimate RER wait based on typical frequency
-    // During midday: RER A/E every 6-8 minutes
-    // Assume average wait is half the frequency
-    let estimatedWait = 4  // Average wait time in minutes
-    
-    print("📊 Live Activity: RER wait estimated - \(estimatedWait)min")
-    return estimatedWait
-}
 
 /// Calculate actual bus wait time at stop (EXCLUDING walk time)
 fileprivate func calculateBusWaitAtStop(recommendation: Recommendation) -> Int? {
